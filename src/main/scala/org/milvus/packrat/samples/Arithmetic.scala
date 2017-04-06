@@ -6,29 +6,28 @@ object Arithmetic {
   
   def sample1: Grammar = {
     
-    val additive = Symbol("Additive", 0)
-    val multitive = Symbol("Multitive", 1)
-    val primary = Symbol("Primary", 2)
-    val decimal = Symbol("Decimal", 3)
+    val additive = Sym("Additive")
+    val multitive = Sym("Multitive")
+    val primary = Sym("Primary")
+    val decimal = Sym("Decimal")
     
-    val openParen = Terminal('(')
-    val closeParen = Terminal(')')
-    val plus = Terminal('+')
-    val times = Terminal('*')
+    val openParen = Terms("(")
+    val closeParen = Terms(")")
+    val plus = Terms("+")
+    val times = Terms("*")
     
-    val digits = for (i <- '0' to '9') yield Terminal(i)
+    val digits = Range('0', '9')
 
-    val addRule = Rule(additive, Alternative(Seq(Sequence(Seq(multitive, plus, additive)), multitive)))
-    val multRule = Rule(multitive, Alternative(Seq(Sequence(Seq(primary, times, multitive)), primary)))
-    val primaryRule = Rule(primary, Alternative(Seq(Sequence(Seq(openParen, additive, closeParen)), decimal)))
-    val decimalRule = Rule(decimal, Alternative(digits))
+    val addRule = Rl(additive, Alt(Sq(multitive, plus, additive), multitive))
+    val multRule = Rl(multitive, Alt(Sq(primary, times, multitive), primary))
+    val primaryRule = Rl(primary, Alt(Sq(openParen, additive, closeParen), decimal))
+    val decimalRule = Rl(decimal, Alt(digits))
     
-    
-    Grammar(additive, Seq[Rule](addRule, multRule, primaryRule,decimalRule))
+    new Grammar(Seq[Rl](addRule, multRule, primaryRule,decimalRule))
   }
 
   def parseTest(s: String, g: Grammar): Unit = {
-    val tree = Parser.parse(s.toCharArray, g)
+    val tree = Parser.parse(s, g)
     tree match {
       case EmptyParseTree => println(s"$s: false")
       case _ => println(tree.toString(g))
