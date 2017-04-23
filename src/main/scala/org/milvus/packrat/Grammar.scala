@@ -8,9 +8,19 @@ sealed trait Expression
 
 final case class Symbol(name: String, num: Int) extends Expression
 
-final case class Terminal(ch: Int) extends Expression
+final case class Terminal(ch: Int) extends Expression {
+  override def toString: String = {
+    val arg = ch.toChar
+    s"Terminal($arg)"
+  }
+}
 
-final case class Terminals(char: Array[Int]) extends Expression
+final case class Terminals(char: Array[Int]) extends Expression {
+  override def toString: String = {
+    val args = char.map(_.toChar).mkString(", ")
+    s"Terminals($args)"
+  }
+}
 
 final case class TerminalRange(from: Int, to: Int) extends Expression
 
@@ -87,5 +97,10 @@ class Grammar(rls: Seq[Rl]) {
     }
   }
 
+  override 
+  def toString: String = {
+    rules.map(_.toString).mkString("\n")
+  }
+  
 }
 

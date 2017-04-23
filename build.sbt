@@ -10,3 +10,4 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.4.9"
 
 scalacOptions += "-deprecation"
 
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.1" % "test"
