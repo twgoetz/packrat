@@ -23,7 +23,7 @@ object Arithmetic {
     val primaryRule = Rl(primary, Alt(Sq(openParen, additive, closeParen), decimal))
     val decimalRule = Rl(decimal, Alt(digits))
     
-    new Grammar(Seq[Rl](addRule, multRule, primaryRule,decimalRule))
+    Grammar(Seq[Rl](addRule, multRule, primaryRule,decimalRule))
   }
 
   def parseTest(s: String, g: Grammar): Unit = {

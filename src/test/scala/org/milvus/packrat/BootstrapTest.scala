@@ -13,7 +13,20 @@ class BootstrapTest extends FunSuite {
   
   test("Test single argument") {
     testArg("( '\\'' )", Terms("'"))
-//    testArg("( '?+*' )", Terms("?+*"))
+    testArg("( '?+*' )", Terms("?+*"))
+  }
+  
+  test("Test expressions") {
+    testExpression("'a'", Terms("a"))
+    val range = Range('A', 'Z')
+    testExpression("Range(A, Z)", range)
+    testExpression("Star(Range(A, Z))", Star(range))
+  }
+  
+  def testExpression(s: String, expr: Expr): Unit = {
+    val (pos, e) = readExpression(s, 0)
+    assert(pos == s.length)
+    assert(e == expr)
   }
   
   def testArg(s: String, exp: Expr): Unit = {

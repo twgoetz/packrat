@@ -4,6 +4,8 @@ import java.util
 
 import scala.annotation.tailrec
 
+// A ParseResult is a pair consisting of a parse tree of what has been recognized so far, and an offset that
+// indicates how far along in the input sequence we are.
 sealed trait ParseResult
 
 case object ParseFailure extends ParseResult
@@ -12,6 +14,7 @@ case class ParseSuccess(pos: Int, tree: ParseTree) extends ParseResult
 
 object Parser {
   
+  // A fake category for sequences in parse trees. Real category symbols will be > 0.
   val SEQ = -1
   
   def parse(text: String, grammar: Grammar): ParseTree = {
@@ -83,6 +86,19 @@ object Parser {
       }
     }
     
+    @tailrec
+    def parseReluctantGap(exp: Expression, pos: Int): ParseResult = {
+      if (pos >= input.length) {
+        ParseFailure
+      } else {
+        val result = parse(exp, pos)
+        result match {
+          case ParseFailure => parseReluctantGap(exp, pos + 1)
+          case ParseSuccess(_, _) => result
+        }
+      }
+    }
+    
     def parse(expression: Expression, pos: Int): ParseResult = {
       expression match {
         case Terminal(c) => {
@@ -131,6 +147,7 @@ object Parser {
         case Alternative(seq) => parseAlternative(seq, seqIdx = 0, pos = pos)
         case KleeneClosure(expression) => parseClosure(expression, pos, Seq())
         case TransitiveClosure(expression) => parsePlus(expression, pos, Seq())
+        case ReluctantGap(expression) => parseReluctantGap(expression, pos)
         case Optional(expression) => {
           val result = parse(expression, pos)
           result match {
@@ -150,6 +167,10 @@ object Parser {
   
 }
 
+/**
+  * A really simple parse tree structure. This will need to be extended and adapted for various purposes (e.g., error
+  * reporting).
+  */
 sealed trait ParseTree {
   
   def toString(g: Grammar): String = {
@@ -159,7 +180,10 @@ sealed trait ParseTree {
         val dtrsString = dtrs
           .map(_.toString(g))
           .mkString(" ")
-        val catString = if (cat >= 0) g.symbolList(cat).name else "SEQ"
+        val catString = g.getSymbolForId(cat) match {
+          case Some(sym) => sym.name
+          case None => "SEQ"
+        } 
         s"[$catString $dtrsString]"
       }
       case ParseTreeTerminal(ch) => s"'$ch'"
