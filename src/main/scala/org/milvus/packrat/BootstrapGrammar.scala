@@ -34,7 +34,7 @@ case class Rl(lhs: Sym, rhs: Expr)
   * but it is specified in a simplified syntax that is easy to read with code. The
   * BootstrapGrammar parser reads the grammar specification from a file, and then instantiates
   * a PEG from it. The PEG can then be used with the packrat parser to read actual grammars.
-  * 
+  *
   * <p>We read the bootstrap grammar with a super simple hand-written lexer/parser.
   */
 object BootstrapGrammar {
@@ -97,6 +97,9 @@ object BootstrapGrammar {
             case "Opt" =>
               val (i, arg) = readArg(s, next + 1)
               (i, Opt(arg))
+            case "Gap" =>
+              val (i, arg) = readArg(s, next + 1)
+              (i, Gap(arg))
             case "Range" =>
               val (i, from, to) = readRangeArgs(s, next + 1)
               (i, Range(from, to))
@@ -183,18 +186,19 @@ object BootstrapGrammar {
     }
     i
   }
-  
-  def load(): Grammar = {
+
+  def loadRules(): Seq[Rl] = {
     val bsgName = "/BootstrapGrammar.peg"
     val is = BootstrapGrammar.getClass.getResourceAsStream(bsgName)
-    val rules = Source
+    Source
       .fromInputStream(is)
       .getLines()
       .filter(_.trim.length > 0)
       .map(line2Rule)
       .toSeq
-    Grammar(rules)
   }
+  
+  def load(): Grammar = Grammar(loadRules())
 
   def main(args: Array[String]): Unit = {
     val grammar = load()

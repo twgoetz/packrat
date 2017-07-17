@@ -1,222 +1,42 @@
 package org.milvus.packrat
 
-import java.util
+import org.milvus.packrat.samples.Tokenizer
 
-import scala.annotation.tailrec
 
-// A ParseResult is a pair consisting of a parse tree of what has been recognized so far, and an offset that
-// indicates how far along in the input sequence we are.
-sealed trait ParseResult
+trait Parser[ParseTree] {
 
-case object ParseFailure extends ParseResult
+  sealed abstract class ParseResult(val success: Boolean)
 
-case class ParseSuccess(pos: Int, tree: ParseTree) extends ParseResult
+  case object ParseFailure extends ParseResult(false)
 
-object Parser {
+  case class ParseSuccess(pos: Int, parse: ParseTree) extends ParseResult(true)
+
+  def parseLongest(from: Int, to: Int, input: Seq[Int]): ParseResult
   
-  // A fake category for sequences in parse trees. Real category symbols will be > 0.
-  val SEQ = -1
-  
-  def parse(text: String, grammar: Grammar): ParseTree = {
-    parse(Util.string2IntArray(text), grammar)
+  def parse(from: Int, to: Int, input: Seq[Int]): Option[ParseTree] = {
+    parseLongest(from, to, input) match {
+      case ParseFailure => None
+      case ParseSuccess(pos, parse) =>
+        if (pos == to) Some(parse)
+        else None
+    }
+  }
+
+  def parse(input: Seq[Int]): Option[ParseTree] = {
+    parse(0, input.size, input)
   }
   
-  def parse(input: Seq[Int], grammar: Grammar): ParseTree = {
-    val table = LookupTable(numCols = input.length + 1, numSyms = grammar.rules.length)
-
-    @tailrec
-    def parseSequence(seq: Seq[Expression], seqIdx: Int, pos: Int, trees: Seq[ParseTree]): ParseResult = {
-      if (seqIdx >= seq.length) {
-        ParseSuccess(pos, ParseTreeNonTerminal(SEQ, trees))
-      } else {
-        val result = parse(seq(seqIdx), pos)
-        result match {
-          case ParseFailure => ParseFailure
-          case ParseSuccess(next, tree) => {
-            tree match {
-              case ParseTreeNonTerminal(SEQ, dtrs) => parseSequence(seq, seqIdx + 1, next, trees ++ dtrs)
-              case _ => parseSequence(seq, seqIdx + 1, next, trees ++ Seq(tree))
-            }
-            
-          }
-        }
-      }
-    }
-
-    @tailrec
-    def parseClosure(exp: Expression, pos: Int, trees: Seq[ParseTree]): ParseResult = {
-      val result = parse(exp, pos)
-      result match {
-        case ParseFailure => ParseSuccess(pos, ParseTreeNonTerminal(SEQ, trees))
-        case ParseSuccess(next, tree) => {
-          tree match {
-            case ParseTreeNonTerminal(SEQ, dtrs) => parseClosure(exp, next, trees ++ dtrs)
-            case _ => parseClosure(exp, next, trees ++ Seq(tree))
-          }
-          
-        }
-      }
-
-    }
-
-    def parsePlus(exp: Expression, pos: Int, trees: Seq[ParseTree]): ParseResult = {
-      val result = parse(exp, pos)
-      result match {
-        case ParseFailure => ParseFailure
-        case ParseSuccess(next, tree) => {
-          tree match {
-            case ParseTreeNonTerminal(SEQ, dtrs) => parseClosure(exp, next, trees ++ dtrs)
-            case _ => parseClosure(exp, next, trees ++ Seq(tree))
-          } 
-        }
-      }
-
-    }
-
-    @tailrec
-    def parseAlternative(seq: Seq[Expression], seqIdx: Int, pos: Int): ParseResult = {
-      if (seqIdx >= seq.length) {
-        ParseFailure
-      } else {
-        val result = parse(seq(seqIdx), pos)
-        result match {
-          case ParseFailure => parseAlternative(seq, seqIdx + 1, pos)
-          case ParseSuccess(_, _) => result
-        }
-      }
-    }
-    
-    @tailrec
-    def parseReluctantGap(exp: Expression, pos: Int): ParseResult = {
-      if (pos >= input.length) {
-        ParseFailure
-      } else {
-        val result = parse(exp, pos)
-        result match {
-          case ParseFailure => parseReluctantGap(exp, pos + 1)
-          case ParseSuccess(_, _) => result
-        }
-      }
-    }
-    
-    def parse(expression: Expression, pos: Int): ParseResult = {
-      expression match {
-        case Terminal(c) => {
-          if (pos >= input.length) {
-            return ParseFailure
-          }
-          if (c == input(pos)) ParseSuccess(pos + 1, ParseTreeTerminal(c))
-          else ParseFailure
-        }
-        case Terminals(ints) => {
-          if (pos >= input.length) {
-            return ParseFailure
-          }
-          val c = input(pos)
-          if (util.Arrays.binarySearch(ints, c) >= 0) ParseSuccess(pos + 1, ParseTreeTerminal(c))
-          else ParseFailure
-        }
-        case TerminalRange(from, to) => {
-          if (pos >= input.length) {
-            return ParseFailure
-          }
-          val c = input(pos)
-          if (c >= from && c <= to) ParseSuccess(pos + 1, ParseTreeTerminal(c))
-          else ParseFailure
-        }
-        case Symbol(_, idx) => {
-          val (toPos, tree) = table.get(pos = pos, sym = idx)
-          if (toPos >= 0) ParseSuccess(toPos, tree)
-          else {
-            val success = parse(grammar.rules(idx).rhs, pos)
-            success match {
-              case ParseSuccess(next, tree) => {
-                val outTree = tree match {
-                  case ParseTreeTerminal(_) => ParseTreeNonTerminal(idx, Seq(tree))
-                  case ParseTreeNonTerminal(_, dtrs) => ParseTreeNonTerminal(idx, dtrs)
-                }
-                table.set(from = pos, to = next, idx, outTree)
-                ParseSuccess(next, outTree)
-              }
-              case ParseFailure => success
-            }
-          }
-        }
-        case EmptyExpression => ParseSuccess(pos, EmptyParseTree)
-        case Sequence(seq) => parseSequence(seq, seqIdx = 0, pos = pos, Seq())
-        case Alternative(seq) => parseAlternative(seq, seqIdx = 0, pos = pos)
-        case KleeneClosure(expression) => parseClosure(expression, pos, Seq())
-        case TransitiveClosure(expression) => parsePlus(expression, pos, Seq())
-        case ReluctantGap(expression) => parseReluctantGap(expression, pos)
-        case Optional(expression) => {
-          val result = parse(expression, pos)
-          result match {
-            case ParseFailure => ParseSuccess(pos, EmptyParseTree)
-            case _ => result
-          }
-        }
-      }
-      
-    }
-    
-    parse(grammar.startSymbol, pos = 0) match {
-      case ParseFailure => EmptyParseTree
-      case ParseSuccess(endPos, tree) => if (endPos == input.length) tree else EmptyParseTree
-    }
+  def parseChars(input: Seq[Char]): Option[ParseTree] = {
+    parse(input.map(_.toInt))
   }
   
 }
 
-/**
-  * A really simple parse tree structure. This will need to be extended and adapted for various purposes (e.g., error
-  * reporting).
-  */
-sealed trait ParseTree {
-  
-  def toString(g: Grammar): String = {
-    this match {
-      case EmptyParseTree => "[]"
-      case ParseTreeNonTerminal(cat, dtrs) => {
-        val dtrsString = dtrs
-          .map(_.toString(g))
-          .mkString(" ")
-        val catString = g.getSymbolForId(cat) match {
-          case Some(sym) => sym.name
-          case None => "SEQ"
-        } 
-        s"[$catString $dtrsString]"
-      }
-      case ParseTreeTerminal(ch) => s"'$ch'"
-    }
+object ParserMain extends App {
+  val s = "This is a test."
+  val result = Tokenizer.parseChars(s)
+  result match {
+    case None => println("Parsing failed")
+    case Some(parse) => println(parse)
   }
-  
-}
-
-case class ParseTreeNonTerminal(cat: Int, dtrs: Seq[ParseTree]) extends ParseTree
-
-case class ParseTreeTerminal(ch: Int) extends ParseTree
-
-object EmptyParseTree extends ParseTreeNonTerminal(Parser.SEQ, Seq())
-
-case class LookupTable(numCols: Int, numSyms: Int) {
-  
-  private val table: Array[Array[(Int, ParseTree)]] = new Array(numSyms)
-  
-  for (i <- 0 until numSyms) table(i) = Array.fill[(Int, ParseTree)](numCols)(Parser.SEQ, EmptyParseTree)
-  
-  def isSet(pos: Int, sym: Int): Boolean = table(sym)(pos)._1 >= 0
-  
-  def set(from: Int, to: Int, sym: Int, tree: ParseTree): Unit = table(sym)(from) = (to, tree)
-  
-  def get(pos: Int, sym: Int): (Int, ParseTree) = table(sym)(pos)
-}
-
-object Util {
-
-  def string2IntArray(s: String): Array[Int] = {
-    val result = new Array[Int](s.length)
-    for (i <- 0 until s.length) result(i) = s.charAt(i)
-    result
-  }
-  
 }

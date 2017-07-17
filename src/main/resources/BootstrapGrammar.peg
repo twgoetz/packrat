@@ -1,9 +1,10 @@
 Grammar -> Star(Rule)
 Operator -> '?*+'
 GapOperator -> '#'
-Expr -> Alt(ParenExpr, Sq(SeqExpr, Star(Sq(OptWS, '/', OptWS, Expr))))
-ParenExpr -> Sq('(', Expr, ')')
-SeqExpr -> Sq(SimpleExpr, Star(Sq(OptWS, Expr)))
+Expr -> Sq(SeqExpr, Alternative)
+Alternative -> Star(Sq(OptWS, '/', OptWS, Expr))
+SeqExpr -> Sq(ParenExpr, Star(Sq(OptWS, Expr)))
+ParenExpr -> Alt(Sq('(', OptWS, Expr, OptWS, ')'), SimpleExpr)
 GapExpr -> Sq(GapOperator, OptWS, Expr)
 SimpleExpr -> Alt(GapExpr, Sq(Alt(Range, Terminal, Symbol, CharSet), OptWS, Opt(Operator)))
 OptWS -> Star(' \n\t')

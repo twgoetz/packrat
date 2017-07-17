@@ -27,7 +27,7 @@ object Arithmetic {
   }
 
   def parseTest(s: String, g: Grammar): Unit = {
-    val tree = Parser.parse(s, g)
+    val tree = ParserInterpreter.parse(s, g)
     tree match {
       case EmptyParseTree => println(s"$s: false")
       case _ => println(tree.toString(g))

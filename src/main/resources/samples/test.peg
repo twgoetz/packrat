@@ -1,5 +1,6 @@
 S -> WordOrPunct+ OptWS;
-WordOrPunct -> OptWS (Punct / Word);
 OptWS -> [ \n\t]*;
-Word -> [a-zA-Z]+;
+WordOrPunct -> OptWS (Punct / Word);
+Word -> Char+;
+Char -> 'a'..'z' / 'A'..'Z';
 Punct -> [.?!,"'];
