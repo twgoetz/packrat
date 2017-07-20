@@ -31,12 +31,43 @@ object GrammarReader {
         Seq()
       case Some(parse) =>
         println(parse)
-        parse2Rules(parse)
+        parse2Rules(parse, grammarString)
     }
   }
   
-  def parse2Rules(parse: GrammarParse): Seq[Rl] = {
-    Seq()
+  def parse2Rules(parse: GrammarParse, text: String): Seq[Rl] = {
+    parse match {
+      case GrammarParser.Grammar(sq @ _*) => sq.map(rule2rule(_, text))
+      case _ =>
+        println("WTF?")
+        Seq()
+    }
+  }
+
+  def rule2rule(ruleParse: GrammarParse, text: String): Rl = {
+    ruleParse match {
+      case GrammarParser.Rule(dtrs @ _*) =>
+        val lhs = sym2sym(dtrs(1), text)
+        Rl(lhs, Sq())
+      case _ => Rl(Sym("WTF?"), Sq())
+    }
+  }
+  
+  def sym2sym(symParse: GrammarParse, text: String): Sym = {
+    symParse match {
+      case GrammarParser.Symbol(offsets @ _*) =>
+        val start = getOffset(offsets(0))
+        val end = getOffset(offsets.last) + 1
+        Sym(text.substring(start, end))
+      case _ => Sym("WTF?")
+    }
+  }
+  
+  def getOffset(position: GrammarParse): Int = {
+    position match {
+      case GrammarParser.Position(pos) => pos
+      case _ => -1
+    }
   }
   
   def readGrammar(is: InputStream): Seq[Rl] = {
