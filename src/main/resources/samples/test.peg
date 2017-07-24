@@ -1,6 +1,1 @@
-S -> WordOrPunct+ OptWS;
-OptWS -> [ \n\t]*;
-WordOrPunct -> OptWS (Punct / Word);
-Word -> Char+;
-Char -> 'a'..'z' / 'A'..'Z';
-Punct -> [.?!,"'];
+

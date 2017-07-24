@@ -6,29 +6,6 @@ import java.util
 
 import org.scalafmt.config.ScalafmtConfig
 
-//sealed trait Expr
-//
-//case class Sym(name: String) extends Expr
-//
-//case class Terms(chars: String) extends Expr
-//
-//case class Range(from: Char, to: Char) extends Expr
-//
-//case class Opt(e: Expr) extends Expr
-//
-//case class Alt(es: Expr*) extends Expr
-//
-//case class Sq(es: Expr*) extends Expr
-//
-//case class Star(e: Expr) extends Expr
-//
-//case class Plus(e: Expr) extends Expr
-//
-//case class Gap(e: Expr) extends Expr
-//
-//case class Rl(lhs: Sym, rhs: Expr)
-
-
 case class Compiler(packageName: String, parserClassName: String, parseTreeClassName: String) {
 
   val bufferClass = s"mutable.Buffer[$parseTreeClassName]"
@@ -194,7 +171,8 @@ object Compiler {
     val parserClassName = "Tokenizer"
     val parseTreeClassName = "TokenizerParse"
 
-    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream("samples/test.peg")
+//    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream("samples/test.peg")
+    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream("BootstrapGrammar.peg")
     val rules = GrammarReader.parseGrammar(inputStream)
 
     //    val rules = BootstrapGrammar.loadRules()
@@ -213,9 +191,6 @@ object BootstrapCompiler {
     val packageName = "org.milvus.packrat.samples.grammar"
     val parserClassName = "GrammarParser"
     val parseTreeClassName = "GrammarParse"
-
-
-    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream("samples/test.peg")
 
     val rules = BootstrapGrammar.loadRules()
     rules.foreach(println(_))

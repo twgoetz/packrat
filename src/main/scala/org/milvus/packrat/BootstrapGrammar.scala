@@ -188,7 +188,7 @@ object BootstrapGrammar {
   }
 
   def loadRules(): Seq[Rl] = {
-    val bsgName = "/BootstrapGrammar.peg"
+    val bsgName = "/BootstrapGrammar.bsg"
     val is = BootstrapGrammar.getClass.getResourceAsStream(bsgName)
     Source
       .fromInputStream(is)

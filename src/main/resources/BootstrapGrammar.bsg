@@ -1,0 +1,20 @@
+Grammar -> Star(Rule)
+Rule -> Sq(OptWS, Symbol, OptWS, '-', '>', OptWS, Expr, OptWS, ';', OptWS)
+Expr -> Sq(SeqElementExpr, Star(Sq(OptWS, SeqElementExpr)))
+SeqElementExpr -> Sq(AltElementExpr, Star(Sq(OptWS, AltOperator, OptWS, AltElementExpr)))
+AltElementExpr -> Sq(OperandExpr, Opt(Sq(OptWS, Operator)))
+OperandExpr -> Alt(ParenExpr, SimpleExpr)
+ParenExpr -> Sq('(', OptWS, Expr, OptWS, ')')
+SimpleExpr -> Alt(GapExpr, Range, Terminal, Symbol, CharSet)
+GapExpr -> Sq(GapOperator, OptWS, Expr)
+Terminal -> Sq('\'', Alt(HexChar, EscapedChar, Range(a,z), Range(A,Z), Range(0,9), '-_()[]^!?.;<>/#+*'), '\'')
+Symbol -> Sq(Alt(Range(a,z), Range(A,Z)), Star(Alt(Range(a,z), Range(A,Z), Range(0,9))))
+CharSet -> Sq('[', Star(Alt(HexChar, EscapedChar, Range(a,z), Range(A,Z), ' -_()^!?,."\';<>/#+*')), ']')
+EscapedChar -> Sq('\\', '\\nt\'[]')
+Hex -> Alt(Range(a,f), Range(A,F), Range(0,9))
+HexChar -> Sq('\\', 'x', Hex, Hex, Opt(Sq(Hex, Hex)))
+Range -> Sq(Terminal, OptWS, '.', '.', OptWS, Terminal)
+OptWS -> Star(' \n\t')
+Operator -> '?*+'
+GapOperator -> '#'
+AltOperator -> '/'

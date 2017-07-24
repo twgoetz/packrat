@@ -3,11 +3,12 @@ package org.milvus.packrat
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
 
+import org.milvus.packrat.samples.grammar.GrammarParser.Position
 import org.milvus.packrat.samples.grammar.{GrammarParse, GrammarParser}
 
 import scala.annotation.tailrec
 import scala.collection.convert.WrapAsJava.`deprecated asJavaCollection`
-import scala.io.Source
+import scala.io.{Codec, Source}
 
 /**
   * Main entry point for end user grammars.
@@ -21,23 +22,22 @@ object GrammarReader {
   def read(is: InputStream): Grammar = {
     Grammar(readGrammar(is))
   }
-  
+
   def parseGrammar(is: InputStream): Seq[Rl] = {
-    val grammarString = Source.fromInputStream(is, StandardCharsets.UTF_8.name()).mkString
+    val grammarString = Source.fromInputStream(is, Codec.UTF8.name).mkString
     val parseResult = GrammarParser.parseChars(grammarString.toCharArray.toSeq)
     parseResult match {
-      case None => 
+      case None =>
         println("Parse failure")
         Seq()
       case Some(parse) =>
-        println(parse)
         parse2Rules(parse, grammarString)
     }
   }
-  
+
   def parse2Rules(parse: GrammarParse, text: String): Seq[Rl] = {
     parse match {
-      case GrammarParser.Grammar(sq @ _*) => sq.map(rule2rule(_, text))
+      case GrammarParser.Grammar(sq@_*) => sq.map(rule2rule(_, text))
       case _ =>
         println("WTF?")
         Seq()
@@ -45,31 +45,155 @@ object GrammarReader {
   }
 
   def rule2rule(ruleParse: GrammarParse, text: String): Rl = {
+    println(ruleParse)
     ruleParse match {
-      case GrammarParser.Rule(dtrs @ _*) =>
+      case GrammarParser.Rule(dtrs@_*) =>
         val lhs = sym2sym(dtrs(1), text)
-        Rl(lhs, Sq())
+        val rhs = ex2ex(dtrs(6), text)
+        Rl(lhs, rhs)
       case _ => Rl(Sym("WTF?"), Sq())
     }
   }
-  
+
+  def ex2ex(exParse: GrammarParse, text: String): Expr = {
+    exParse match {
+      case GrammarParser.Symbol(_*) => sym2sym(exParse, text)
+      case GrammarParser.Expr(dtrs@_*) =>
+        val subExprs = dtrs
+          .filter({
+            case GrammarParser.OptWS(_*) => false
+            case _ => true
+          })
+          .map(ex2ex(_, text))
+        if (subExprs.size == 1) subExprs(0)
+        else Sq(subExprs: _*)
+      case GrammarParser.SeqElementExpr(dtrs@_*) =>
+        val subExprs = dtrs
+          .filter({
+            case GrammarParser.OptWS(_*) => false
+            case GrammarParser.AltOperator(_*) => false
+            case _ => true
+          })
+          .map(ex2ex(_, text))
+        if (subExprs.size == 1) subExprs(0)
+        else Alt(subExprs: _*)
+      case GrammarParser.AltElementExpr(dtrs@_*) =>
+        val subEx = ex2ex(dtrs(0), text)
+        if (dtrs.size == 1) subEx
+        else {
+          val opChar = op2op(dtrs(2), text)
+          opChar match {
+            case '?' => Opt(subEx)
+            case '*' => Star(subEx)
+            case '+' => Plus(subEx)
+            case _ => Sym("WTF")
+          }
+        }
+      case GrammarParser.OperandExpr(ex) => ex2ex(ex, text)
+      case GrammarParser.ParenExpr(dtrs@_*) => ex2ex(dtrs(2), text)
+      case GrammarParser.SimpleExpr(ex) => ex2ex(ex, text)
+      case GrammarParser.GapExpr(dtrs@_*) => Gap(ex2ex(dtrs(2), text))
+      case GrammarParser.Terminal(dtrs@_*) => ex2ex(dtrs(1), text)
+      case GrammarParser.Position(pos) => Terms(text(pos).toString)
+      case GrammarParser.EscapedChar(dtrs@_*) =>
+        val pos = getOffset(dtrs(1))
+        val ch = text(pos) match {
+          case 'n' => '\n'
+          case 't' => '\t'
+          case c => c
+        }
+        Terms(ch.toString)
+      case GrammarParser.CharSet(dtrs@_*) =>
+        val chars = dtrs.tail.dropRight(1)
+          .map(ex2ex(_, text))
+          .map({
+            case Terms(str) => str
+            case _ => ""
+          })
+          .mkString
+        Terms(chars)
+      case GrammarParser.Hex(pos) => Terms(text(getOffset(pos)).toString)
+      case GrammarParser.HexChar(dtrs@_*) =>
+        val hexChars = dtrs.drop(2)
+          .map(ex2ex(_, text))
+          .map({
+            case Terms(str) => str(0)
+            case _ => '0'
+          })
+        val ints = for (i <- 0 until hexChars.size) yield {
+          val multiplier = 16 * (i + 1)
+          val value: Int = {
+            val c = hexChars(hexChars.size - i - 1)
+            c match {
+              case '0' => 0
+              case '1' => 1
+              case '2' => 2
+              case '3' => 3
+              case '4' => 4
+              case '5' => 5
+              case '6' => 6
+              case '7' => 7
+              case '8' => 8
+              case '9' => 9
+              case 'a' => 10
+              case 'b' => 11
+              case 'c' => 12
+              case 'd' => 13
+              case 'e' => 14
+              case 'f' => 15
+              case 'A' => 10
+              case 'B' => 11
+              case 'C' => 12
+              case 'D' => 13
+              case 'E' => 14
+              case 'F' => 15
+            }
+          }
+          value * multiplier
+        }
+        Terms(ints.sum.toChar.toString())
+      case GrammarParser.Range(dtrs@_*) =>
+        val fromChar = ex2ex(dtrs(0), text) match {
+          case Terms(str) => str(0)
+          case _ => ' '
+        }
+        val toChar = ex2ex(dtrs(5), text) match {
+          case Terms(str) => str(0)
+          case _ => ' '
+        }
+        Range(fromChar, toChar)
+      case parse => throw new RuntimeException(s"Unknown grammar construct: $parse")
+    }
+  }
+
+  def op2op(opPars: GrammarParse, text: String): Char = {
+    opPars match {
+      case GrammarParser.Operator(op) =>
+        op match {
+          case GrammarParser.Position(pos) => text(pos)
+          case _ => 'x'
+        }
+      case _ => 'x'
+    }
+  }
+
   def sym2sym(symParse: GrammarParse, text: String): Sym = {
     symParse match {
-      case GrammarParser.Symbol(offsets @ _*) =>
+      case GrammarParser.Symbol(offsets@_*) =>
         val start = getOffset(offsets(0))
         val end = getOffset(offsets.last) + 1
         Sym(text.substring(start, end))
       case _ => Sym("WTF?")
     }
   }
-  
+
   def getOffset(position: GrammarParse): Int = {
     position match {
       case GrammarParser.Position(pos) => pos
       case _ => -1
     }
   }
-  
+
   def readGrammar(is: InputStream): Seq[Rl] = {
     val grammarString = Source.fromInputStream(is, StandardCharsets.UTF_8.name()).mkString
     val parseTree = ParserInterpreter.parse(grammarString, standardBSG)
@@ -171,7 +295,7 @@ object GrammarReader {
           case "Terminal" => tree2expr(dtrs(1))
           case "CharSet" =>
             val chars = dtrs
-              .take(dtrs.size -1)
+              .take(dtrs.size - 1)
               .tail
               .map({
                 case ParseTreeTerminal(ch) => ch.toChar.toString
@@ -183,7 +307,7 @@ object GrammarReader {
                       case _ => ""
                     }
                   } else ""
-                } 
+                }
                 case _ => ""
               })
               .mkString("")
