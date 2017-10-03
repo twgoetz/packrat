@@ -6,13 +6,20 @@ import java.util
 
 import org.scalafmt.config.ScalafmtConfig
 
+/**
+  * Compiles a set of rules to a Scala source file. 
+  * 
+  * @param packageName The package name of the resulting class.
+  * @param parserClassName The class name of the resulting class.
+  * @param parseTreeClassName The class name of the root class of the parse trees that the parser outputs.
+  */
 case class Compiler(packageName: String, parserClassName: String, parseTreeClassName: String) {
 
   val bufferClass = s"mutable.Buffer[$parseTreeClassName]"
 
   case class TranslationResult(trans: String, fromCount: Int)
 
-  val staticImports =
+  val staticImports: String =
     """import org.milvus.packrat.Parser
       |import scala.collection.mutable
       |
@@ -29,7 +36,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
       s"case class Result(success: Boolean, pos: Int, cats: mutable.Buffer[$parseTreeClassName])\n" +
       "val failure = Result(false, 0, mutable.Buffer())\n\n"
     val classHeader = s"\nobject $parserClassName extends Parser[$parseTreeClassName] {\n\n"
-    val startSymbol = rules(0).lhs.name
+    val startSymbol = rules.head.lhs.name
     val abstractFunImpl = s"override def parseLongest(from: Int, to: Int, input: Seq[Int]): ParseResult = {\n" +
       s"val res = parse$startSymbol(from, to, input)\n if (res.success) ParseSuccess(res.pos, res.cats(0))\n" +
       "else ParseFailure\n }\n\n"
@@ -112,7 +119,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
         }
       }
 
-      s"{\nval ch = input($fromVar)\n" + cs(0, set.size) + "}\n"
+      s"{\nval ch = input($fromVar)\n" + cs(0, set.length) + "}\n"
     }
   }
 
@@ -156,7 +163,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
       s"Result(true, $fromVar + 1, $bufferClass(Position($fromVar)))\n else\n failure}\n"
   }
 
-  private def countVar(name: String, count: Int): String = if (count == 0) name else s"$name$count"
+//  private def countVar(name: String, count: Int): String = if (count == 0) name else s"$name$count"
 
 }
 
