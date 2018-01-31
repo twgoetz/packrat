@@ -38,6 +38,8 @@ object Tokenizer extends Parser[TokenizerParse] {
     parseS(from, to, input)
   }
   
+  override def codeForExternalSymbol(name: String): Int = 0
+  
   def parseS(from: Int, to: Int, input: Seq[Int]): ParseResult = {
     val res1 = parsePlus1(from, to, input)
     res1 match {

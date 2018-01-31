@@ -13,6 +13,8 @@ trait Parser[ParseTree] {
 
   def parseLongest(from: Int, to: Int, input: Seq[Int]): ParseResult
   
+  def codeForExternalSymbol(name: String): Int
+  
   def parse(from: Int, to: Int, input: Seq[Int]): Option[ParseTree] = {
     parseLongest(from, to, input) match {
       case ParseFailure => None

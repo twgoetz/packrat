@@ -37,6 +37,8 @@ object GrammarParser extends Parser[GrammarParse] {
     if (res.success) ParseSuccess(res.pos, res.cats(0))
     else ParseFailure
   }
+  
+  override def codeForExternalSymbol(name: String): Int = 0
 
   def parseGrammar(from: Int, to: Int, input: Seq[Int]): Result = {
     val res = {

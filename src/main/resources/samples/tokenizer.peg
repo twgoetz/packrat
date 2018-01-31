@@ -2,4 +2,4 @@ S -> WordOrPunct+ OptWS;
 OptWS -> [ \n\t]*;
 WordOrPunct -> OptWS (Punct / Word);
 Word -> ('a'..'z' / 'A'..'Z')+;
-Punct -> [.?!,"'];
+Punct -> [.?!,"'] / Stuff;
