@@ -5,6 +5,41 @@ import com.sun.org.apache.xalan.internal.xsltc.compiler.sym
 
 import scala.collection.mutable
 
+trait Parser[ParseTree] {
+  
+  sealed abstract class ParseResult(val success: Boolean)
+  
+  case object ParseFailure extends ParseResult(false)
+  
+  case class ParseSuccess(pos: Int, parse: ParseTree) extends ParseResult(true)
+  
+  def parseLongest(from: Int, to: Int, input: Seq[Int]): ParseResult
+  
+  def codeForExternalSymbol(name: String): Int
+  
+  def parse(from: Int, to: Int, input: Seq[Int]): Option[ParseTree] = {
+    parseLongest(from, to, input) match {
+      case ParseFailure => None
+      case ParseSuccess(pos, parse) =>
+        if (pos == to) Some(parse)
+        else None
+    }
+  }
+  
+  def parse(input: Seq[Int]): Option[ParseTree] = {
+    parse(0, input.size, input)
+  }
+  
+  def parseChars(input: Seq[Char]): Option[ParseTree] = {
+    parse(input.map(_.toInt))
+  }
+  
+  def parseTokens(input: Seq[String]): Option[ParseTree] = {
+    parse(input.map(codeForExternalSymbol))
+  }
+  
+}
+
 sealed trait TokenizerParse
 
 object Tokenizer extends Parser[TokenizerParse] {

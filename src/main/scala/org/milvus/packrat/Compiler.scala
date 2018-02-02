@@ -15,8 +15,45 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
   case class TranslationResult(trans: String, fromCount: Int)
 
   val staticImports =
-    """import org.milvus.packrat.Parser
-      |import scala.collection.mutable
+    """import scala.collection.mutable
+      |
+      |// This file was generated automatically. Do not edit.
+      |
+      |trait Parser[ParseTree] {
+      |
+      |  sealed abstract class ParseResult(val success: Boolean)
+      |
+      |  case object ParseFailure extends ParseResult(false)
+      |
+      |  case class ParseSuccess(pos: Int, parse: ParseTree) extends ParseResult(true)
+      |
+      |  def parseLongest(from: Int, to: Int, input: Seq[Int]): ParseResult
+      |
+      |  def codeForExternalSymbol(name: String): Int
+      |
+      |  def parse(from: Int, to: Int, input: Seq[Int]): Option[ParseTree] = {
+      |    parseLongest(from, to, input) match {
+      |      case ParseFailure => None
+      |      case ParseSuccess(pos, parse) =>
+      |        if (pos == to) Some(parse)
+      |        else None
+      |    }
+      |  }
+      |
+      |  def parse(input: Seq[Int]): Option[ParseTree] = {
+      |    parse(0, input.size, input)
+      |  }
+      |
+      |  def parseChars(input: Seq[Char]): Option[ParseTree] = {
+      |    parse(input.map(_.toInt))
+      |  }
+      |
+      |  def parseTokens(input: Seq[String]): Option[ParseTree] = {
+      |    parse(input.map(codeForExternalSymbol))
+      |  }
+      |
+      |}
+      |
       |
       |""".stripMargin
 
@@ -32,7 +69,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
     def collect(e: Expr): Seq[String] = {
       e match {
         case Sym(name) => if (grammarSymbols.contains(name)) Seq() else Seq(name)
-        case Opt(ex) => collect(e)
+        case Opt(ex) => collect(ex)
         case Alt(ex @ _*) => ex.flatMap(collect)
         case Sq(ex @ _*) => ex.flatMap(collect)
         case Star(ex) => collect(ex)
@@ -124,18 +161,21 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
   }
 
   def compileSeq(exprs: Seq[Expr], fromVar: String, externalSymbols: Map[String, Int]): String = {
-    val s1 = s"{\n val dtrs = mutable.Buffer[$parseTreeClassName]()\n val next0 = $fromVar\n"
+    
+    val localVar = TmpPos.next + "_"
+    
+    val s1 = s"{\n val dtrs = mutable.Buffer[$parseTreeClassName]()\n val ${localVar}0 = $fromVar\n"
 
     def cs(start: Int, end: Int): String = {
       if (start == end) {
         val count = start + 1
-        val c1 = s"\n val res$count = ${compile(exprs(start), "next" + start, externalSymbols)}"
+        val c1 = s"\n val res$count = ${compile(exprs(start), localVar + start, externalSymbols)}"
         val c2 = s"if (res$count.success) {\n dtrs ++= res$count.cats\n Result(true, res$count.pos, dtrs)\n } else {\n failure\n }\n"
         c1 + c2
       } else {
         val count = start + 1
-        val c1 = s"val res$count = ${compile(exprs(start), "next" + start, externalSymbols)}"
-        val c2 = s"if (res$count.success) {\n dtrs ++= res$count.cats\n val next$count = res$count.pos\n"
+        val c1 = s"val res$count = ${compile(exprs(start), localVar + start, externalSymbols)}"
+        val c2 = s"if (res$count.success && res$count.pos < input.size) {\n dtrs ++= res$count.cats\n val $localVar$count = res$count.pos\n"
         val c4 = cs(start + 1, end)
         val c5 = "}\n else failure\n"
         c1 + c2 + c4 + c5
