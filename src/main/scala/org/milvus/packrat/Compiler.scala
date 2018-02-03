@@ -33,8 +33,9 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
       .map(name => s"case class $name(dtrs: $parseTreeClassName*) extends $parseTreeClassName\n")
       .mkString
     val classDecls = s"case class Position(pos: Int) extends $parseTreeClassName\n\n" +
-      s"case class Result(success: Boolean, pos: Int, cats: mutable.Buffer[$parseTreeClassName])\n" +
-      "val failure = Result(false, 0, mutable.Buffer())\n\n"
+      s"sealed class Result(val success: Boolean, val pos: Int, val cats: mutable.Buffer[$parseTreeClassName])\n" +
+      s"case class Success(override val pos: Int, override val cats: mutable.Buffer[$parseTreeClassName]) extends Result(true, pos, cats)\n" +
+      "case object Failure extends Result(false, 0, mutable.Buffer())\n\n"
     val classHeader = s"\nobject $parserClassName extends Parser[$parseTreeClassName] {\n\n"
     val startSymbol = rules.head.lhs.name
     val abstractFunImpl = s"override def parseLongest(from: Int, to: Int, input: Seq[Int]): ParseResult = {\n" +
@@ -52,7 +53,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
     val lhs = rule.lhs.name
     val funHeader = s"def parse$lhs(from: Int, to: Int, input: Seq[Int]): Result = {\n val res = "
     val funBody = compile(rule.rhs, "from")
-    val funFooter = s"if (res.success) Result(true, res.pos, $bufferClass($lhs(res.cats: _*))) else failure\n}\n"
+    val funFooter = s"if (res.success) Success(res.pos, $bufferClass($lhs(res.cats: _*))) else Failure\n}\n"
     funHeader + funBody + funFooter
   }
 
@@ -71,7 +72,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
   }
 
   def compileOptional(expr: Expr, fromVar: String): String = {
-    s"{\nval res = ${compile(expr, fromVar)} if (res.success) res else Result(true, $fromVar, $bufferClass())\n}\n"
+    s"{\nval res = ${compile(expr, fromVar)} if (res.success) res else Success($fromVar, $bufferClass())\n}\n"
   }
 
   def compileSeq(exprs: Seq[Expr], fromVar: String): String = {
@@ -81,14 +82,14 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
       if (start == end) {
         val count = start + 1
         val c1 = s"\n val res$count = ${compile(exprs(start), "next" + start)}"
-        val c2 = s"if (res$count.success) {\n dtrs ++= res$count.cats\n Result(true, res$count.pos, dtrs)\n } else {\n failure\n }\n"
+        val c2 = s"if (res$count.success) {\n dtrs ++= res$count.cats\n Success(res$count.pos, dtrs)\n } else {\n Failure\n }\n"
         c1 + c2
       } else {
         val count = start + 1
         val c1 = s"val res$count = ${compile(exprs(start), "next" + start)}"
         val c2 = s"if (res$count.success) {\n dtrs ++= res$count.cats\n val next$count = res$count.pos\n"
         val c4 = cs(start + 1, end)
-        val c5 = "}\n else failure\n"
+        val c5 = "}\n else Failure\n"
         c1 + c2 + c4 + c5
       }
     }
@@ -99,22 +100,22 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
 
   def compileSet(set: Array[Int], fromVar: String): String = {
     util.Arrays.sort(set)
-    if (set.isEmpty) "failure"
+    if (set.isEmpty) "Failure"
     else {
 
       def cs(start: Int, end: Int): String = {
         val size = end - start
-        if (size == 1) s"if (ch == ${set(start)}) Result(true, $fromVar + 1, $bufferClass(Position($fromVar))) else failure\n"
+        if (size == 1) s"if (ch == ${set(start)}) Success($fromVar + 1, $bufferClass(Position($fromVar))) else Failure\n"
         else if (size == 2) {
-          val c1 = s"if (ch == ${set(start)}) Result(true, $fromVar + 1, $bufferClass(Position($fromVar)))\n"
-          val c2 = s"else if(ch == ${set(start + 1)}) Result(true, $fromVar + 1, $bufferClass(Position($fromVar)))\n else failure\n "
+          val c1 = s"if (ch == ${set(start)}) Success($fromVar + 1, $bufferClass(Position($fromVar)))\n"
+          val c2 = s"else if(ch == ${set(start + 1)}) Success($fromVar + 1, $bufferClass(Position($fromVar)))\n else Failure\n "
           c1 + c2
         } else {
           val middlePos = start + (size / 2)
           val dec = set(middlePos)
           val c1 = s"if (ch < $dec) {\n ${cs(start, middlePos)} }\n"
           val c2 = s"else if (ch > $dec) {\n ${cs(middlePos + 1, end)} } \n"
-          val c3 = s"else if (ch == $dec) Result(true, $fromVar + 1, $bufferClass(Position($fromVar)))\n else failure\n"
+          val c3 = s"else if (ch == $dec) Success($fromVar + 1, $bufferClass(Position($fromVar)))\n else Failure\n"
           c1 + c2 + c3
         }
       }
@@ -126,7 +127,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
   def compileStar(expr: Expr, fromVar: String): String = {
     val p1 = s"{\nval dtrs = mutable.Buffer[$parseTreeClassName]()\n var pos = $fromVar\n var keepGoing = true\n while (keepGoing && pos < to) {\n"
     val p2 = s"val res = ${compile(expr, "pos")} if (!res.success) {\n keepGoing = false\n}\n"
-    val p3 = "else {\n dtrs ++= res.cats\n pos = res.pos\n}\n}\n Result(true, pos, dtrs)\n}\n"
+    val p3 = "else {\n dtrs ++= res.cats\n pos = res.pos\n}\n}\n Success(pos, dtrs)\n}\n"
     p1 + p2 + p3
   }
 
@@ -136,7 +137,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
     val p2 = "if (!res.success) {\n res\n} else {\n "
     val p3 = s"val dtrs = res.cats\n var pos = res.pos\n var keepGoing = true\n while (keepGoing && pos < to) {\n"
     val p4 = s"val res = ${compile(expr, "pos")} if (!res.success) {\n keepGoing = false\n} else {\n"
-    val p5 = "dtrs ++= res.cats\n pos = res.pos\n}\n}\n Result(true, pos, dtrs)\n}\n}\n"
+    val p5 = "dtrs ++= res.cats\n pos = res.pos\n}\n}\n Success(pos, dtrs)\n}\n}\n"
     p1 + p2 + p3 + p4 + p5
   }
 
@@ -159,8 +160,8 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
   }
 
   def compileRange(from: Int, to: Int, fromVar: String): String = {
-    s"if ($fromVar >= input.size) failure\nelse {\n val c = input($fromVar)\n if (c >= $from && c <= $to)\n" +
-      s"Result(true, $fromVar + 1, $bufferClass(Position($fromVar)))\n else\n failure}\n"
+    s"if ($fromVar >= input.size) Failure\nelse {\n val c = input($fromVar)\n if (c >= $from && c <= $to)\n" +
+      s"Success($fromVar + 1, $bufferClass(Position($fromVar)))\n else\n Failure}\n"
   }
 
 //  private def countVar(name: String, count: Int): String = if (count == 0) name else s"$name$count"
@@ -174,12 +175,12 @@ object Compiler {
     //    val parserClassName = "GrammarParser"
     //    val parseTreeClassName = "GrammarParse"
 
-    val packageName = "org.milvus.packrat"
-    val parserClassName = "Tokenizer"
+    val packageName = "org.milvus.packrat.samples.grammar"
+    val parserClassName = "TokenizerSample"
     val parseTreeClassName = "TokenizerParse"
 
-//    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream("samples/test.peg")
-    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream("BootstrapGrammar.peg")
+    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream("samples/tokenizer.peg")
+//    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream("BootstrapGrammar.peg")
     val rules = GrammarReader.parseGrammar(inputStream)
 
     //    val rules = BootstrapGrammar.loadRules()

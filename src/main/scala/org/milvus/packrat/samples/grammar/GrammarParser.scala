@@ -29,8 +29,10 @@ object GrammarParser extends Parser[GrammarParse] {
   case class AltOperator(dtrs: GrammarParse*) extends GrammarParse
   case class Position(pos: Int) extends GrammarParse
 
-  case class Result(success: Boolean, pos: Int, cats: mutable.Buffer[GrammarParse])
-  val failure = Result(false, 0, mutable.Buffer())
+  sealed class Result(val success: Boolean, val pos: Int, val cats: mutable.Buffer[GrammarParse])
+  case class Success(override val pos: Int, override val cats: mutable.Buffer[GrammarParse])
+      extends Result(true, pos, cats)
+  case object Failure extends Result(false, 0, mutable.Buffer())
 
   override def parseLongest(from: Int, to: Int, input: Seq[Int]): ParseResult = {
     val res = parseGrammar(from, to, input)
@@ -52,10 +54,10 @@ object GrammarParser extends Parser[GrammarParse] {
           pos = res.pos
         }
       }
-      Result(true, pos, dtrs)
+      Success(pos, dtrs)
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](Grammar(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Grammar(res.cats: _*)))
+    else Failure
   }
 
   def parseRule(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -76,16 +78,16 @@ object GrammarParser extends Parser[GrammarParse] {
             val next3 = res3.pos
             val res4 = {
               val ch = input(next3)
-              if (ch == 45) Result(true, next3 + 1, mutable.Buffer[GrammarParse](Position(next3)))
-              else failure
+              if (ch == 45) Success(next3 + 1, mutable.Buffer[GrammarParse](Position(next3)))
+              else Failure
             }
             if (res4.success) {
               dtrs ++= res4.cats
               val next4 = res4.pos
               val res5 = {
                 val ch = input(next4)
-                if (ch == 62) Result(true, next4 + 1, mutable.Buffer[GrammarParse](Position(next4)))
-                else failure
+                if (ch == 62) Success(next4 + 1, mutable.Buffer[GrammarParse](Position(next4)))
+                else Failure
               }
               if (res5.success) {
                 dtrs ++= res5.cats
@@ -105,8 +107,8 @@ object GrammarParser extends Parser[GrammarParse] {
                       val res9 = {
                         val ch = input(next8)
                         if (ch == 59)
-                          Result(true, next8 + 1, mutable.Buffer[GrammarParse](Position(next8)))
-                        else failure
+                          Success(next8 + 1, mutable.Buffer[GrammarParse](Position(next8)))
+                        else Failure
                       }
                       if (res9.success) {
                         dtrs ++= res9.cats
@@ -115,22 +117,21 @@ object GrammarParser extends Parser[GrammarParse] {
                         val res10 = parseOptWS(next9, to, input)
                         if (res10.success) {
                           dtrs ++= res10.cats
-                          Result(true, res10.pos, dtrs)
+                          Success(res10.pos, dtrs)
                         } else {
-                          failure
+                          Failure
                         }
-                      } else failure
-                    } else failure
-                  } else failure
-                } else failure
-              } else failure
-            } else failure
-          } else failure
-        } else failure
-      } else failure
+                      } else Failure
+                    } else Failure
+                  } else Failure
+                } else Failure
+              } else Failure
+            } else Failure
+          } else Failure
+        } else Failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](Rule(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Rule(res.cats: _*))) else Failure
   }
 
   def parseExpr(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -158,11 +159,11 @@ object GrammarParser extends Parser[GrammarParse] {
                 val res2 = parseSeqElementExpr(next1, to, input)
                 if (res2.success) {
                   dtrs ++= res2.cats
-                  Result(true, res2.pos, dtrs)
+                  Success(res2.pos, dtrs)
                 } else {
-                  failure
+                  Failure
                 }
-              } else failure
+              } else Failure
             }
             if (!res.success) {
               keepGoing = false
@@ -171,18 +172,17 @@ object GrammarParser extends Parser[GrammarParse] {
               pos = res.pos
             }
           }
-          Result(true, pos, dtrs)
+          Success(pos, dtrs)
         }
         if (res2.success) {
           dtrs ++= res2.cats
-          Result(true, res2.pos, dtrs)
+          Success(res2.pos, dtrs)
         } else {
-          failure
+          Failure
         }
-      } else failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](Expr(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Expr(res.cats: _*))) else Failure
   }
 
   def parseSeqElementExpr(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -218,13 +218,13 @@ object GrammarParser extends Parser[GrammarParse] {
                     val res4 = parseAltElementExpr(next3, to, input)
                     if (res4.success) {
                       dtrs ++= res4.cats
-                      Result(true, res4.pos, dtrs)
+                      Success(res4.pos, dtrs)
                     } else {
-                      failure
+                      Failure
                     }
-                  } else failure
-                } else failure
-              } else failure
+                  } else Failure
+                } else Failure
+              } else Failure
             }
             if (!res.success) {
               keepGoing = false
@@ -233,19 +233,18 @@ object GrammarParser extends Parser[GrammarParse] {
               pos = res.pos
             }
           }
-          Result(true, pos, dtrs)
+          Success(pos, dtrs)
         }
         if (res2.success) {
           dtrs ++= res2.cats
-          Result(true, res2.pos, dtrs)
+          Success(res2.pos, dtrs)
         } else {
-          failure
+          Failure
         }
-      } else failure
+      } else Failure
     }
-    if (res.success)
-      Result(true, res.pos, mutable.Buffer[GrammarParse](SeqElementExpr(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](SeqElementExpr(res.cats: _*)))
+    else Failure
   }
 
   def parseAltElementExpr(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -269,25 +268,24 @@ object GrammarParser extends Parser[GrammarParse] {
               val res2 = parseOperator(next1, to, input)
               if (res2.success) {
                 dtrs ++= res2.cats
-                Result(true, res2.pos, dtrs)
+                Success(res2.pos, dtrs)
               } else {
-                failure
+                Failure
               }
-            } else failure
+            } else Failure
           }
-          if (res.success) res else Result(true, next1, mutable.Buffer[GrammarParse]())
+          if (res.success) res else Success(next1, mutable.Buffer[GrammarParse]())
         }
         if (res2.success) {
           dtrs ++= res2.cats
-          Result(true, res2.pos, dtrs)
+          Success(res2.pos, dtrs)
         } else {
-          failure
+          Failure
         }
-      } else failure
+      } else Failure
     }
-    if (res.success)
-      Result(true, res.pos, mutable.Buffer[GrammarParse](AltElementExpr(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](AltElementExpr(res.cats: _*)))
+    else Failure
   }
 
   def parseOperandExpr(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -296,8 +294,8 @@ object GrammarParser extends Parser[GrammarParse] {
       if (res.success) res
       else parseSimpleExpr(from, to, input)
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](OperandExpr(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](OperandExpr(res.cats: _*)))
+    else Failure
   }
 
   def parseParenExpr(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -306,8 +304,7 @@ object GrammarParser extends Parser[GrammarParse] {
       val next0 = from
       val res1 = {
         val ch = input(next0)
-        if (ch == 40) Result(true, next0 + 1, mutable.Buffer[GrammarParse](Position(next0)))
-        else failure
+        if (ch == 40) Success(next0 + 1, mutable.Buffer[GrammarParse](Position(next0))) else Failure
       }
       if (res1.success) {
         dtrs ++= res1.cats
@@ -327,22 +324,22 @@ object GrammarParser extends Parser[GrammarParse] {
 
               val res5 = {
                 val ch = input(next4)
-                if (ch == 41) Result(true, next4 + 1, mutable.Buffer[GrammarParse](Position(next4)))
-                else failure
+                if (ch == 41) Success(next4 + 1, mutable.Buffer[GrammarParse](Position(next4)))
+                else Failure
               }
               if (res5.success) {
                 dtrs ++= res5.cats
-                Result(true, res5.pos, dtrs)
+                Success(res5.pos, dtrs)
               } else {
-                failure
+                Failure
               }
-            } else failure
-          } else failure
-        } else failure
-      } else failure
+            } else Failure
+          } else Failure
+        } else Failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](ParenExpr(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](ParenExpr(res.cats: _*)))
+    else Failure
   }
 
   def parseSimpleExpr(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -363,8 +360,8 @@ object GrammarParser extends Parser[GrammarParse] {
         }
       }
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](SimpleExpr(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](SimpleExpr(res.cats: _*)))
+    else Failure
   }
 
   def parseGapExpr(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -383,15 +380,15 @@ object GrammarParser extends Parser[GrammarParse] {
           val res3 = parseExpr(next2, to, input)
           if (res3.success) {
             dtrs ++= res3.cats
-            Result(true, res3.pos, dtrs)
+            Success(res3.pos, dtrs)
           } else {
-            failure
+            Failure
           }
-        } else failure
-      } else failure
+        } else Failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](GapExpr(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](GapExpr(res.cats: _*)))
+    else Failure
   }
 
   def parseTerminal(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -400,8 +397,7 @@ object GrammarParser extends Parser[GrammarParse] {
       val next0 = from
       val res1 = {
         val ch = input(next0)
-        if (ch == 39) Result(true, next0 + 1, mutable.Buffer[GrammarParse](Position(next0)))
-        else failure
+        if (ch == 39) Success(next0 + 1, mutable.Buffer[GrammarParse](Position(next0))) else Failure
       }
       if (res1.success) {
         dtrs ++= res1.cats
@@ -414,35 +410,35 @@ object GrammarParser extends Parser[GrammarParse] {
             if (res.success) res
             else {
               val res =
-                if (next1 >= input.size) failure
+                if (next1 >= input.size) Failure
                 else {
                   val c = input(next1)
                   if (c >= 97 && c <= 122)
-                    Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                    Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
                   else
-                    failure
+                    Failure
                 }
               if (res.success) res
               else {
                 val res =
-                  if (next1 >= input.size) failure
+                  if (next1 >= input.size) Failure
                   else {
                     val c = input(next1)
                     if (c >= 65 && c <= 90)
-                      Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                      Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
                     else
-                      failure
+                      Failure
                   }
                 if (res.success) res
                 else {
                   val res =
-                    if (next1 >= input.size) failure
+                    if (next1 >= input.size) Failure
                     else {
                       val c = input(next1)
                       if (c >= 48 && c <= 57)
-                        Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                        Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
                       else
-                        failure
+                        Failure
                     }
                   if (res.success) res
                   else {
@@ -451,65 +447,65 @@ object GrammarParser extends Parser[GrammarParse] {
                       if (ch < 42) {
                         if (ch < 40) {
                           if (ch == 33)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
                           else if (ch == 35)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                          else failure
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                          else Failure
                         } else if (ch > 40) {
                           if (ch == 41)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                          else failure
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                          else Failure
                         } else if (ch == 40)
-                          Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                        else failure
+                          Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                        else Failure
                       } else if (ch > 42) {
                         if (ch < 45) {
                           if (ch == 43)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                          else failure
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                          else Failure
                         } else if (ch > 45) {
                           if (ch == 46)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                          else failure
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                          else Failure
                         } else if (ch == 45)
-                          Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                        else failure
+                          Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                        else Failure
                       } else if (ch == 42)
-                        Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                      else failure
+                        Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                      else Failure
                     } else if (ch > 47) {
                       if (ch < 91) {
                         if (ch < 62) {
                           if (ch == 59)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
                           else if (ch == 60)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                          else failure
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                          else Failure
                         } else if (ch > 62) {
                           if (ch == 63)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                          else failure
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                          else Failure
                         } else if (ch == 62)
-                          Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                        else failure
+                          Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                        else Failure
                       } else if (ch > 91) {
                         if (ch < 94) {
                           if (ch == 93)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                          else failure
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                          else Failure
                         } else if (ch > 94) {
                           if (ch == 95)
-                            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                          else failure
+                            Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                          else Failure
                         } else if (ch == 94)
-                          Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                        else failure
+                          Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                        else Failure
                       } else if (ch == 91)
-                        Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                      else failure
+                        Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                      else Failure
                     } else if (ch == 47)
-                      Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-                    else failure
+                      Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+                    else Failure
                   }
                 }
               }
@@ -522,20 +518,20 @@ object GrammarParser extends Parser[GrammarParse] {
 
           val res3 = {
             val ch = input(next2)
-            if (ch == 39) Result(true, next2 + 1, mutable.Buffer[GrammarParse](Position(next2)))
-            else failure
+            if (ch == 39) Success(next2 + 1, mutable.Buffer[GrammarParse](Position(next2)))
+            else Failure
           }
           if (res3.success) {
             dtrs ++= res3.cats
-            Result(true, res3.pos, dtrs)
+            Success(res3.pos, dtrs)
           } else {
-            failure
+            Failure
           }
-        } else failure
-      } else failure
+        } else Failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](Terminal(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Terminal(res.cats: _*)))
+    else Failure
   }
 
   def parseSymbol(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -544,22 +540,22 @@ object GrammarParser extends Parser[GrammarParse] {
       val next0 = from
       val res1 = {
         val res =
-          if (next0 >= input.size) failure
+          if (next0 >= input.size) Failure
           else {
             val c = input(next0)
             if (c >= 97 && c <= 122)
-              Result(true, next0 + 1, mutable.Buffer[GrammarParse](Position(next0)))
+              Success(next0 + 1, mutable.Buffer[GrammarParse](Position(next0)))
             else
-              failure
+              Failure
           }
         if (res.success) res
-        else if (next0 >= input.size) failure
+        else if (next0 >= input.size) Failure
         else {
           val c = input(next0)
           if (c >= 65 && c <= 90)
-            Result(true, next0 + 1, mutable.Buffer[GrammarParse](Position(next0)))
+            Success(next0 + 1, mutable.Buffer[GrammarParse](Position(next0)))
           else
-            failure
+            Failure
         }
       }
       if (res1.success) {
@@ -573,33 +569,33 @@ object GrammarParser extends Parser[GrammarParse] {
           while (keepGoing && pos < to) {
             val res = {
               val res =
-                if (pos >= input.size) failure
+                if (pos >= input.size) Failure
                 else {
                   val c = input(pos)
                   if (c >= 97 && c <= 122)
-                    Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                    Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
                   else
-                    failure
+                    Failure
                 }
               if (res.success) res
               else {
                 val res =
-                  if (pos >= input.size) failure
+                  if (pos >= input.size) Failure
                   else {
                     val c = input(pos)
                     if (c >= 65 && c <= 90)
-                      Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                      Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
                     else
-                      failure
+                      Failure
                   }
                 if (res.success) res
-                else if (pos >= input.size) failure
+                else if (pos >= input.size) Failure
                 else {
                   val c = input(pos)
                   if (c >= 48 && c <= 57)
-                    Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                    Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
                   else
-                    failure
+                    Failure
                 }
               }
             }
@@ -610,18 +606,18 @@ object GrammarParser extends Parser[GrammarParse] {
               pos = res.pos
             }
           }
-          Result(true, pos, dtrs)
+          Success(pos, dtrs)
         }
         if (res2.success) {
           dtrs ++= res2.cats
-          Result(true, res2.pos, dtrs)
+          Success(res2.pos, dtrs)
         } else {
-          failure
+          Failure
         }
-      } else failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](Symbol(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Symbol(res.cats: _*)))
+    else Failure
   }
 
   def parseCharSet(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -630,8 +626,7 @@ object GrammarParser extends Parser[GrammarParse] {
       val next0 = from
       val res1 = {
         val ch = input(next0)
-        if (ch == 91) Result(true, next0 + 1, mutable.Buffer[GrammarParse](Position(next0)))
-        else failure
+        if (ch == 91) Success(next0 + 1, mutable.Buffer[GrammarParse](Position(next0))) else Failure
       }
       if (res1.success) {
         dtrs ++= res1.cats
@@ -649,24 +644,24 @@ object GrammarParser extends Parser[GrammarParse] {
                 if (res.success) res
                 else {
                   val res =
-                    if (pos >= input.size) failure
+                    if (pos >= input.size) Failure
                     else {
                       val c = input(pos)
                       if (c >= 97 && c <= 122)
-                        Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                        Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
                       else
-                        failure
+                        Failure
                     }
                   if (res.success) res
                   else {
                     val res =
-                      if (pos >= input.size) failure
+                      if (pos >= input.size) Failure
                       else {
                         val c = input(pos)
                         if (c >= 65 && c <= 90)
-                          Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                          Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
                         else
-                          failure
+                          Failure
                       }
                     if (res.success) res
                     else {
@@ -675,69 +670,69 @@ object GrammarParser extends Parser[GrammarParse] {
                         if (ch < 39) {
                           if (ch < 34) {
                             if (ch == 32)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
                             else if (ch == 33)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                            else failure
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                            else Failure
                           } else if (ch > 34) {
                             if (ch == 35)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                            else failure
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                            else Failure
                           } else if (ch == 34)
-                            Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                          else failure
+                            Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                          else Failure
                         } else if (ch > 39) {
                           if (ch < 42) {
                             if (ch == 40)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
                             else if (ch == 41)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                            else failure
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                            else Failure
                           } else if (ch > 42) {
                             if (ch == 43)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                            else failure
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                            else Failure
                           } else if (ch == 42)
-                            Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                          else failure
+                            Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                          else Failure
                         } else if (ch == 39)
-                          Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                        else failure
+                          Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                        else Failure
                       } else if (ch > 44) {
                         if (ch < 60) {
                           if (ch < 47) {
                             if (ch == 45)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
                             else if (ch == 46)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                            else failure
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                            else Failure
                           } else if (ch > 47) {
                             if (ch == 59)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                            else failure
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                            else Failure
                           } else if (ch == 47)
-                            Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                          else failure
+                            Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                          else Failure
                         } else if (ch > 60) {
                           if (ch < 94) {
                             if (ch == 62)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
                             else if (ch == 63)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                            else failure
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                            else Failure
                           } else if (ch > 94) {
                             if (ch == 95)
-                              Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                            else failure
+                              Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                            else Failure
                           } else if (ch == 94)
-                            Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                          else failure
+                            Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                          else Failure
                         } else if (ch == 60)
-                          Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                        else failure
+                          Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                        else Failure
                       } else if (ch == 44)
-                        Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-                      else failure
+                        Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+                      else Failure
                     }
                   }
                 }
@@ -750,7 +745,7 @@ object GrammarParser extends Parser[GrammarParse] {
               pos = res.pos
             }
           }
-          Result(true, pos, dtrs)
+          Success(pos, dtrs)
         }
         if (res2.success) {
           dtrs ++= res2.cats
@@ -758,20 +753,20 @@ object GrammarParser extends Parser[GrammarParse] {
 
           val res3 = {
             val ch = input(next2)
-            if (ch == 93) Result(true, next2 + 1, mutable.Buffer[GrammarParse](Position(next2)))
-            else failure
+            if (ch == 93) Success(next2 + 1, mutable.Buffer[GrammarParse](Position(next2)))
+            else Failure
           }
           if (res3.success) {
             dtrs ++= res3.cats
-            Result(true, res3.pos, dtrs)
+            Success(res3.pos, dtrs)
           } else {
-            failure
+            Failure
           }
-        } else failure
-      } else failure
+        } else Failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](CharSet(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](CharSet(res.cats: _*)))
+    else Failure
   }
 
   def parseEscapedChar(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -780,8 +775,7 @@ object GrammarParser extends Parser[GrammarParse] {
       val next0 = from
       val res1 = {
         val ch = input(next0)
-        if (ch == 92) Result(true, next0 + 1, mutable.Buffer[GrammarParse](Position(next0)))
-        else failure
+        if (ch == 92) Success(next0 + 1, mutable.Buffer[GrammarParse](Position(next0))) else Failure
       }
       if (res1.success) {
         dtrs ++= res1.cats
@@ -791,70 +785,66 @@ object GrammarParser extends Parser[GrammarParse] {
           val ch = input(next1)
           if (ch < 93) {
             if (ch < 91) {
-              if (ch == 39) Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-              else failure
+              if (ch == 39) Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+              else Failure
             } else if (ch > 91) {
-              if (ch == 92) Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-              else failure
-            } else if (ch == 91)
-              Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-            else failure
+              if (ch == 92) Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+              else Failure
+            } else if (ch == 91) Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+            else Failure
           } else if (ch > 93) {
-            if (ch == 110) Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-            else if (ch == 116)
-              Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-            else failure
-          } else if (ch == 93)
-            Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-          else failure
+            if (ch == 110) Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+            else if (ch == 116) Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+            else Failure
+          } else if (ch == 93) Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+          else Failure
         }
         if (res2.success) {
           dtrs ++= res2.cats
-          Result(true, res2.pos, dtrs)
+          Success(res2.pos, dtrs)
         } else {
-          failure
+          Failure
         }
-      } else failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](EscapedChar(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](EscapedChar(res.cats: _*)))
+    else Failure
   }
 
   def parseHex(from: Int, to: Int, input: Seq[Int]): Result = {
     val res = {
       val res =
-        if (from >= input.size) failure
+        if (from >= input.size) Failure
         else {
           val c = input(from)
           if (c >= 97 && c <= 102)
-            Result(true, from + 1, mutable.Buffer[GrammarParse](Position(from)))
+            Success(from + 1, mutable.Buffer[GrammarParse](Position(from)))
           else
-            failure
+            Failure
         }
       if (res.success) res
       else {
         val res =
-          if (from >= input.size) failure
+          if (from >= input.size) Failure
           else {
             val c = input(from)
             if (c >= 65 && c <= 70)
-              Result(true, from + 1, mutable.Buffer[GrammarParse](Position(from)))
+              Success(from + 1, mutable.Buffer[GrammarParse](Position(from)))
             else
-              failure
+              Failure
           }
         if (res.success) res
-        else if (from >= input.size) failure
+        else if (from >= input.size) Failure
         else {
           val c = input(from)
           if (c >= 48 && c <= 57)
-            Result(true, from + 1, mutable.Buffer[GrammarParse](Position(from)))
+            Success(from + 1, mutable.Buffer[GrammarParse](Position(from)))
           else
-            failure
+            Failure
         }
       }
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](Hex(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Hex(res.cats: _*))) else Failure
   }
 
   def parseHexChar(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -863,16 +853,15 @@ object GrammarParser extends Parser[GrammarParse] {
       val next0 = from
       val res1 = {
         val ch = input(next0)
-        if (ch == 92) Result(true, next0 + 1, mutable.Buffer[GrammarParse](Position(next0)))
-        else failure
+        if (ch == 92) Success(next0 + 1, mutable.Buffer[GrammarParse](Position(next0))) else Failure
       }
       if (res1.success) {
         dtrs ++= res1.cats
         val next1 = res1.pos
         val res2 = {
           val ch = input(next1)
-          if (ch == 120) Result(true, next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
-          else failure
+          if (ch == 120) Success(next1 + 1, mutable.Buffer[GrammarParse](Position(next1)))
+          else Failure
         }
         if (res2.success) {
           dtrs ++= res2.cats
@@ -898,27 +887,27 @@ object GrammarParser extends Parser[GrammarParse] {
                     val res2 = parseHex(next1, to, input)
                     if (res2.success) {
                       dtrs ++= res2.cats
-                      Result(true, res2.pos, dtrs)
+                      Success(res2.pos, dtrs)
                     } else {
-                      failure
+                      Failure
                     }
-                  } else failure
+                  } else Failure
                 }
-                if (res.success) res else Result(true, next4, mutable.Buffer[GrammarParse]())
+                if (res.success) res else Success(next4, mutable.Buffer[GrammarParse]())
               }
               if (res5.success) {
                 dtrs ++= res5.cats
-                Result(true, res5.pos, dtrs)
+                Success(res5.pos, dtrs)
               } else {
-                failure
+                Failure
               }
-            } else failure
-          } else failure
-        } else failure
-      } else failure
+            } else Failure
+          } else Failure
+        } else Failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](HexChar(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](HexChar(res.cats: _*)))
+    else Failure
   }
 
   def parseRange(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -935,16 +924,16 @@ object GrammarParser extends Parser[GrammarParse] {
           val next2 = res2.pos
           val res3 = {
             val ch = input(next2)
-            if (ch == 46) Result(true, next2 + 1, mutable.Buffer[GrammarParse](Position(next2)))
-            else failure
+            if (ch == 46) Success(next2 + 1, mutable.Buffer[GrammarParse](Position(next2)))
+            else Failure
           }
           if (res3.success) {
             dtrs ++= res3.cats
             val next3 = res3.pos
             val res4 = {
               val ch = input(next3)
-              if (ch == 46) Result(true, next3 + 1, mutable.Buffer[GrammarParse](Position(next3)))
-              else failure
+              if (ch == 46) Success(next3 + 1, mutable.Buffer[GrammarParse](Position(next3)))
+              else Failure
             }
             if (res4.success) {
               dtrs ++= res4.cats
@@ -957,18 +946,18 @@ object GrammarParser extends Parser[GrammarParse] {
                 val res6 = parseTerminal(next5, to, input)
                 if (res6.success) {
                   dtrs ++= res6.cats
-                  Result(true, res6.pos, dtrs)
+                  Success(res6.pos, dtrs)
                 } else {
-                  failure
+                  Failure
                 }
-              } else failure
-            } else failure
-          } else failure
-        } else failure
-      } else failure
+              } else Failure
+            } else Failure
+          } else Failure
+        } else Failure
+      } else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](Range(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Range(res.cats: _*)))
+    else Failure
   }
 
   def parseOptWS(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -980,13 +969,11 @@ object GrammarParser extends Parser[GrammarParse] {
         val res = {
           val ch = input(pos)
           if (ch < 10) {
-            if (ch == 9) Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-            else failure
+            if (ch == 9) Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos))) else Failure
           } else if (ch > 10) {
-            if (ch == 32) Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-            else failure
-          } else if (ch == 10) Result(true, pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
-          else failure
+            if (ch == 32) Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos))) else Failure
+          } else if (ch == 10) Success(pos + 1, mutable.Buffer[GrammarParse](Position(pos)))
+          else Failure
         }
         if (!res.success) {
           keepGoing = false
@@ -995,45 +982,41 @@ object GrammarParser extends Parser[GrammarParse] {
           pos = res.pos
         }
       }
-      Result(true, pos, dtrs)
+      Success(pos, dtrs)
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](OptWS(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](OptWS(res.cats: _*)))
+    else Failure
   }
 
   def parseOperator(from: Int, to: Int, input: Seq[Int]): Result = {
     val res = {
       val ch = input(from)
       if (ch < 43) {
-        if (ch == 42) Result(true, from + 1, mutable.Buffer[GrammarParse](Position(from)))
-        else failure
+        if (ch == 42) Success(from + 1, mutable.Buffer[GrammarParse](Position(from))) else Failure
       } else if (ch > 43) {
-        if (ch == 63) Result(true, from + 1, mutable.Buffer[GrammarParse](Position(from)))
-        else failure
-      } else if (ch == 43) Result(true, from + 1, mutable.Buffer[GrammarParse](Position(from)))
-      else failure
+        if (ch == 63) Success(from + 1, mutable.Buffer[GrammarParse](Position(from))) else Failure
+      } else if (ch == 43) Success(from + 1, mutable.Buffer[GrammarParse](Position(from)))
+      else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](Operator(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Operator(res.cats: _*)))
+    else Failure
   }
 
   def parseGapOperator(from: Int, to: Int, input: Seq[Int]): Result = {
     val res = {
       val ch = input(from)
-      if (ch == 35) Result(true, from + 1, mutable.Buffer[GrammarParse](Position(from)))
-      else failure
+      if (ch == 35) Success(from + 1, mutable.Buffer[GrammarParse](Position(from))) else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](GapOperator(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](GapOperator(res.cats: _*)))
+    else Failure
   }
 
   def parseAltOperator(from: Int, to: Int, input: Seq[Int]): Result = {
     val res = {
       val ch = input(from)
-      if (ch == 47) Result(true, from + 1, mutable.Buffer[GrammarParse](Position(from)))
-      else failure
+      if (ch == 47) Success(from + 1, mutable.Buffer[GrammarParse](Position(from))) else Failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[GrammarParse](AltOperator(res.cats: _*)))
-    else failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](AltOperator(res.cats: _*)))
+    else Failure
   }
 }
