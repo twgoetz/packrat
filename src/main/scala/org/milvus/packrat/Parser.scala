@@ -1,6 +1,7 @@
 package org.milvus.packrat
 
-//import org.milvus.packrat.samples.{ShallowParser, Tokenizer}
+import org.milvus.packrat.samples.ShallowParse
+import org.milvus.packrat.samples.{Parser, ShallowParser}
 
 
 
@@ -33,24 +34,24 @@ object ParserMain extends App {
     out.reverse
   }
   
-  def parseToPrintNode(parse: TokenizerParse): PrintNode = {
+  def parseToPrintNode(parse: ShallowParse): PrintNode = {
     parse match {
-      case TokenizerSample.Position(n) => Terminal(n, n)
-      case TokenizerSample.Node(name, dtrs @ _*) =>
+      case ShallowParser.Position(n) => Terminal(n, n)
+      case ShallowParser.NonTerminal(name, dtrs) =>
         NonTerminal(name, consolidateTerminals(dtrs.map(parseToPrintNode)))
     }
   }
   
-  def printTree(tokenizerParse: TokenizerParse): Unit = {
+  def printTree(tokenizerParse: ShallowParse): Unit = {
     val printTree = parseToPrintNode(tokenizerParse)
     //TODO: finish
     
   }
   
-  val s = "This is a test."
-  val result = TokenizerSample.parseChars(s)
+  val s = "VB PRP DT JJ NN NN IN NNP".split(" ").map(ShallowParser.codeForExternalSymbol(_))
+  val result = ShallowParser.parseLongest(0, s.length, s)
   result match {
-    case None => println("Parsing failed")
-    case Some(parse) => println(parse)
+    case ShallowParser.ParseFailure => println("Parsing failed")
+    case ShallowParser.ParseSuccess(_, parse) => println(parse)
   }
 }
