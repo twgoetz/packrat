@@ -36,22 +36,45 @@ object ParserMain extends App {
   
   def parseToPrintNode(parse: ShallowParse): PrintNode = {
     parse match {
-      case ShallowParser.Position(n) => Terminal(n, n)
+      case ShallowParser.Position(n) => Terminal(n, n + 1)
       case ShallowParser.NonTerminal(name, dtrs) =>
         NonTerminal(name, consolidateTerminals(dtrs.map(parseToPrintNode)))
     }
   }
   
-  def printTree(tokenizerParse: ShallowParse): Unit = {
-    val printTree = parseToPrintNode(tokenizerParse)
-    //TODO: finish
+  def spaces(times: Int): String = {
+    val sb = new StringBuilder(times + 1, "\n")
+    for (i <- 0 to times) sb.append(' ')
+    sb.toString()
+  }
+  
+  def printTree(tokenizerParse: ShallowParse, input: Seq[String]): String = {
+    val indent = 2
+    val printNode = parseToPrintNode(tokenizerParse)
+    
+    def printTree(node: PrintNode, level: Int): String = {
+      node match {
+        case Terminal(from, to) =>
+          val s = input.slice(from, to).mkString(" ")
+          spaces(indent * level) + "\"" + s + "\""
+        case NonTerminal(name, dtrs) =>
+          s"${spaces(level * indent)}$name" + dtrs.map(dtr => printTree(dtr, level + 1)).mkString
+      }
+    }
+    
+    printTree(printNode, 0)
     
   }
   
-  val s = "VB PRP DT JJ NN NN IN NNP".split(" ").map(ShallowParser.codeForExternalSymbol(_))
+  val input = "VB PRP DT JJ NN NN IN NNP".split(" ")
+  val s = input.map(ShallowParser.codeForExternalSymbol(_))
   val result = ShallowParser.parseLongest(0, s.length, s)
   result match {
     case ShallowParser.ParseFailure => println("Parsing failed")
-    case ShallowParser.ParseSuccess(_, parse) => println(parse)
+    case ShallowParser.ParseSuccess(_, parse) => 
+      println(parse)
+      println()
+      println(printTree(parse, input))
   }
+  
 }
