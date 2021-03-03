@@ -1,12 +1,13 @@
 S -> IMPERATIVE / QUESTION / CHUNK+;
 
-CHUNK -> PP / NP;
-NP -> PRP / ( (WDT / (PDT? DT))? NBAR ) ;
+CHUNK -> PP / NP / VC;
+NP -> PRP / ( (WDT / (PDT? DT))? NBAR ) / DT;
 AP -> RBR? ADJ? CD? ADJ*;
 ADJ -> JJ / JJS / JJR;
 NBAR -> AP? NOUNS;
 NOUNS -> ( NN / NNS / NNP / NNPS )+;
 PP -> IN NP;
+VC -> VERB+;
 
 IMPERATIVE -> VERB (# CHUNK)+;
 QUESTION -> CHUNK VERB (# CHUNK)* VERB? (# CHUNK)*;

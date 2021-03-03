@@ -18,7 +18,7 @@ object ParserInterpreter {
   val SEQ = -1
   
   def parse(text: String, grammar: Grammar): ParseTree = {
-    parse(Util.string2IntArray(text), grammar)
+    parse(Util.string2IntArray(text).toIndexedSeq, grammar)
   }
   
   def parse(input: Seq[Int], grammar: Grammar): ParseTree = {

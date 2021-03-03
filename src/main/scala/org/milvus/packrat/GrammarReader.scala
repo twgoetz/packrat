@@ -7,7 +7,7 @@ import org.milvus.packrat.samples.grammar.GrammarParser.Position
 import org.milvus.packrat.samples.grammar.{GrammarParse, GrammarParser}
 
 import scala.annotation.tailrec
-import scala.collection.convert.WrapAsJava.`deprecated asJavaCollection`
+//import scala.collection.convert.WrapAsJava.`deprecated asJavaCollection`
 import scala.io.{Codec, Source}
 
 /**

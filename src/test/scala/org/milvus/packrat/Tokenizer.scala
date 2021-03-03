@@ -109,7 +109,7 @@ object Tokenizer extends Parser[TokenizerParse] {
         }
       } else failure
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[TokenizerParse](S(res.cats: _*)))
+    if (res.success) Result(true, res.pos, mutable.Buffer[TokenizerParse](S(res.cats.toSeq: _*)))
     else failure
   }
   
@@ -139,7 +139,7 @@ object Tokenizer extends Parser[TokenizerParse] {
       }
       Result(true, pos, dtrs)
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[TokenizerParse](OptWS(res.cats: _*)))
+    if (res.success) Result(true, res.pos, mutable.Buffer[TokenizerParse](OptWS(res.cats.toSeq: _*)))
     else failure
   }
   
@@ -166,7 +166,7 @@ object Tokenizer extends Parser[TokenizerParse] {
       } else failure
     }
     if (res.success)
-      Result(true, res.pos, mutable.Buffer[TokenizerParse](WordOrPunct(res.cats: _*)))
+      Result(true, res.pos, mutable.Buffer[TokenizerParse](WordOrPunct(res.cats.toSeq: _*)))
     else failure
   }
   
@@ -229,7 +229,7 @@ object Tokenizer extends Parser[TokenizerParse] {
         Result(true, pos, dtrs)
       }
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[TokenizerParse](Word(res.cats: _*)))
+    if (res.success) Result(true, res.pos, mutable.Buffer[TokenizerParse](Word(res.cats.toSeq: _*)))
     else failure
   }
   
@@ -261,7 +261,7 @@ object Tokenizer extends Parser[TokenizerParse] {
         else failure
       }
     }
-    if (res.success) Result(true, res.pos, mutable.Buffer[TokenizerParse](Punct(res.cats: _*)))
+    if (res.success) Result(true, res.pos, mutable.Buffer[TokenizerParse](Punct(res.cats.toSeq: _*)))
     else failure
   }
 }

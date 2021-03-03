@@ -39,15 +39,14 @@ trait Parser[ParseTree] {
 
 }
 
+
 sealed trait ShallowParse
+
 
 object ShallowParser extends Parser[ShallowParse] {
 
   abstract class NonTerminal(val name: String, val dtrs: Seq[ShallowParse]) extends ShallowParse
-  object NonTerminal {
-    def unapply(nt: NonTerminal): Option[(String, Seq[ShallowParse])] = Some((nt.name, nt.dtrs)) 
-  }
-  
+  object NonTerminal { def unapply(nt: NonTerminal): Option[(String, Seq[ShallowParse])] = Some((nt.name, nt.dtrs)) }
   case class S(override val dtrs: ShallowParse*) extends NonTerminal("S", dtrs)
   case class CHUNK(override val dtrs: ShallowParse*) extends NonTerminal("CHUNK", dtrs)
   case class NP(override val dtrs: ShallowParse*) extends NonTerminal("NP", dtrs)
@@ -60,11 +59,9 @@ object ShallowParser extends Parser[ShallowParse] {
   case class QUESTION(override val dtrs: ShallowParse*) extends NonTerminal("QUESTION", dtrs)
   case class VERB(override val dtrs: ShallowParse*) extends NonTerminal("VERB", dtrs)
   case class Position(pos: Int) extends ShallowParse
-  sealed abstract class Result(val success: Boolean,
-                               val pos: Int,
-                               val cats: mutable.Buffer[ShallowParse])
-  case class Success(override val pos: Int, override val cats: mutable.Buffer[ShallowParse])
-    extends Result(true, pos, cats)
+
+  sealed abstract class Result(val success: Boolean, val pos: Int, val cats: mutable.Buffer[ShallowParse])
+  case class Success(override val pos: Int, override val cats: mutable.Buffer[ShallowParse]) extends Result(true, pos, cats)
   case object Failure extends Result(false, 0, mutable.Buffer())
 
   sealed abstract class ExternalSymbol(val name: String, val index: Int)
@@ -90,32 +87,11 @@ object ShallowParser extends Parser[ShallowParse] {
   case object VBP extends ExternalSymbol("VBP", -20)
   case object VBZ extends ExternalSymbol("VBZ", -21)
 
-  private val externalSymbolMap: Map[String, ExternalSymbol] =
-    Seq(PRP,
-      WDT,
-      PDT,
-      DT,
-      RBR,
-      CD,
-      JJ,
-      JJS,
-      JJR,
-      NN,
-      NNS,
-      NNP,
-      NNPS,
-      IN,
-      VB,
-      VBD,
-      VBG,
-      VBN,
-      VBP,
-      VBZ).foldLeft(Map[String, ExternalSymbol]())((map, sym) => map + (sym.name -> sym))
+  private val externalSymbolMap: Map[String, ExternalSymbol] = Seq(PRP, WDT, PDT, DT, RBR, CD, JJ, JJS, JJR, NN, NNS, NNP, NNPS, IN, VB, VBD, VBG, VBN, VBP, VBZ).foldLeft(Map[String, ExternalSymbol]())((map, sym) => map + (sym.name -> sym))
 
-  override def codeForExternalSymbol(sym: String) =
-    externalSymbolMap
-      .getOrElse(sym, UnknownSymbol)
-      .index
+  override def codeForExternalSymbol(sym: String) = externalSymbolMap
+    .getOrElse(sym, UnknownSymbol)
+    .index
 
   override def parseLongest(from: Int, to: Int, input: Seq[Int]): ParseResult = {
     val res = parseS(from, to, input)
@@ -152,7 +128,7 @@ object ShallowParser extends Parser[ShallowParse] {
         }
       }
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](S(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](S(res.cats.toSeq: _*))) else Failure
   }
 
   def parseCHUNK(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -161,8 +137,7 @@ object ShallowParser extends Parser[ShallowParse] {
       if (res.success) res
       else parseNP(from, to, input)
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](CHUNK(res.cats: _*)))
-    else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](CHUNK(res.cats.toSeq: _*))) else Failure
   }
 
   def parseNP(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -179,8 +154,7 @@ object ShallowParser extends Parser[ShallowParse] {
           val res = {
             val res = {
               val ch = input(pos1_0)
-              if (ch == -3) Success(pos1_0 + 1, mutable.Buffer[ShallowParse](Position(pos1_0)))
-              else Failure
+              if (ch == -3) Success(pos1_0 + 1, mutable.Buffer[ShallowParse](Position(pos1_0))) else Failure
             }
             if (res.success) res
             else {
@@ -189,8 +163,7 @@ object ShallowParser extends Parser[ShallowParse] {
               val res1 = {
                 val res = {
                   val ch = input(pos2_0)
-                  if (ch == -4) Success(pos2_0 + 1, mutable.Buffer[ShallowParse](Position(pos2_0)))
-                  else Failure
+                  if (ch == -4) Success(pos2_0 + 1, mutable.Buffer[ShallowParse](Position(pos2_0))) else Failure
                 }
                 if (res.success) res else Success(pos2_0, mutable.Buffer[ShallowParse]())
               }
@@ -200,8 +173,7 @@ object ShallowParser extends Parser[ShallowParse] {
 
                 val res2 = {
                   val ch = input(pos2_1)
-                  if (ch == -5) Success(pos2_1 + 1, mutable.Buffer[ShallowParse](Position(pos2_1)))
-                  else Failure
+                  if (ch == -5) Success(pos2_1 + 1, mutable.Buffer[ShallowParse](Position(pos2_1))) else Failure
                 }
                 if (res2.success) {
                   dtrs ++= res2.cats
@@ -209,7 +181,8 @@ object ShallowParser extends Parser[ShallowParse] {
                 } else {
                   Failure
                 }
-              } else Failure
+              }
+              else Failure
             }
           }
           if (res.success) res else Success(pos1_0, mutable.Buffer[ShallowParse]())
@@ -225,10 +198,11 @@ object ShallowParser extends Parser[ShallowParse] {
           } else {
             Failure
           }
-        } else Failure
+        }
+        else Failure
       }
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](NP(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](NP(res.cats.toSeq: _*))) else Failure
   }
 
   def parseAP(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -238,8 +212,7 @@ object ShallowParser extends Parser[ShallowParse] {
       val res1 = {
         val res = {
           val ch = input(pos3_0)
-          if (ch == -6) Success(pos3_0 + 1, mutable.Buffer[ShallowParse](Position(pos3_0)))
-          else Failure
+          if (ch == -6) Success(pos3_0 + 1, mutable.Buffer[ShallowParse](Position(pos3_0))) else Failure
         }
         if (res.success) res else Success(pos3_0, mutable.Buffer[ShallowParse]())
       }
@@ -256,8 +229,7 @@ object ShallowParser extends Parser[ShallowParse] {
           val res3 = {
             val res = {
               val ch = input(pos3_2)
-              if (ch == -7) Success(pos3_2 + 1, mutable.Buffer[ShallowParse](Position(pos3_2)))
-              else Failure
+              if (ch == -7) Success(pos3_2 + 1, mutable.Buffer[ShallowParse](Position(pos3_2))) else Failure
             }
             if (res.success) res else Success(pos3_2, mutable.Buffer[ShallowParse]())
           }
@@ -273,7 +245,8 @@ object ShallowParser extends Parser[ShallowParse] {
                 val res = parseADJ(pos4, to, input)
                 if (!res.success) {
                   keepGoing = false
-                } else {
+                }
+                else {
                   dtrs ++= res.cats
                   pos4 = res.pos
                 }
@@ -286,11 +259,14 @@ object ShallowParser extends Parser[ShallowParse] {
             } else {
               Failure
             }
-          } else Failure
-        } else Failure
-      } else Failure
+          }
+          else Failure
+        }
+        else Failure
+      }
+      else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](AP(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](AP(res.cats.toSeq: _*))) else Failure
   }
 
   def parseADJ(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -308,12 +284,11 @@ object ShallowParser extends Parser[ShallowParse] {
         if (res.success) res
         else {
           val ch = input(from)
-          if (ch == -10) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-          else Failure
+          if (ch == -10) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
         }
       }
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](ADJ(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](ADJ(res.cats.toSeq: _*))) else Failure
   }
 
   def parseNBAR(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -335,9 +310,10 @@ object ShallowParser extends Parser[ShallowParse] {
         } else {
           Failure
         }
-      } else Failure
+      }
+      else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](NBAR(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](NBAR(res.cats.toSeq: _*))) else Failure
   }
 
   def parseNOUNS(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -345,28 +321,24 @@ object ShallowParser extends Parser[ShallowParse] {
       val res = {
         val res = {
           val ch = input(from)
-          if (ch == -11) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-          else Failure
+          if (ch == -11) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
         }
         if (res.success) res
         else {
           val res = {
             val ch = input(from)
-            if (ch == -12) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-            else Failure
+            if (ch == -12) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
           }
           if (res.success) res
           else {
             val res = {
               val ch = input(from)
-              if (ch == -13) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-              else Failure
+              if (ch == -13) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
             }
             if (res.success) res
             else {
               val ch = input(from)
-              if (ch == -14) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-              else Failure
+              if (ch == -14) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
             }
           }
         }
@@ -381,28 +353,24 @@ object ShallowParser extends Parser[ShallowParse] {
           val res = {
             val res = {
               val ch = input(pos6)
-              if (ch == -11) Success(pos6 + 1, mutable.Buffer[ShallowParse](Position(pos6)))
-              else Failure
+              if (ch == -11) Success(pos6 + 1, mutable.Buffer[ShallowParse](Position(pos6))) else Failure
             }
             if (res.success) res
             else {
               val res = {
                 val ch = input(pos6)
-                if (ch == -12) Success(pos6 + 1, mutable.Buffer[ShallowParse](Position(pos6)))
-                else Failure
+                if (ch == -12) Success(pos6 + 1, mutable.Buffer[ShallowParse](Position(pos6))) else Failure
               }
               if (res.success) res
               else {
                 val res = {
                   val ch = input(pos6)
-                  if (ch == -13) Success(pos6 + 1, mutable.Buffer[ShallowParse](Position(pos6)))
-                  else Failure
+                  if (ch == -13) Success(pos6 + 1, mutable.Buffer[ShallowParse](Position(pos6))) else Failure
                 }
                 if (res.success) res
                 else {
                   val ch = input(pos6)
-                  if (ch == -14) Success(pos6 + 1, mutable.Buffer[ShallowParse](Position(pos6)))
-                  else Failure
+                  if (ch == -14) Success(pos6 + 1, mutable.Buffer[ShallowParse](Position(pos6))) else Failure
                 }
               }
             }
@@ -417,8 +385,7 @@ object ShallowParser extends Parser[ShallowParse] {
         Success(pos6, dtrs)
       }
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](NOUNS(res.cats: _*)))
-    else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](NOUNS(res.cats.toSeq: _*))) else Failure
   }
 
   def parsePP(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -427,8 +394,7 @@ object ShallowParser extends Parser[ShallowParse] {
       val pos7_0 = from
       val res1 = {
         val ch = input(pos7_0)
-        if (ch == -15) Success(pos7_0 + 1, mutable.Buffer[ShallowParse](Position(pos7_0)))
-        else Failure
+        if (ch == -15) Success(pos7_0 + 1, mutable.Buffer[ShallowParse](Position(pos7_0))) else Failure
       }
       if (res1.success && res1.pos < input.size) {
         dtrs ++= res1.cats
@@ -441,9 +407,10 @@ object ShallowParser extends Parser[ShallowParse] {
         } else {
           Failure
         }
-      } else Failure
+      }
+      else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](PP(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](PP(res.cats.toSeq: _*))) else Failure
   }
 
   def parseIMPERATIVE(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -456,7 +423,15 @@ object ShallowParser extends Parser[ShallowParse] {
         val pos8_1 = res1.pos
 
         val res2 = {
-          val res = parseCHUNK(pos8_1, to, input)
+          val res = {
+            var pos10 = pos8_1
+            var res = parseCHUNK(pos10, to, input)
+            while (!res.success && (pos10 + 1) < to) {
+              pos10 = pos10 + 1
+              res = parseCHUNK(pos10, to, input)
+            }
+            res
+          }
           if (!res.success) {
             res
           } else {
@@ -464,7 +439,15 @@ object ShallowParser extends Parser[ShallowParse] {
             var pos9 = res.pos
             var keepGoing = true
             while (keepGoing && pos9 < to) {
-              val res = parseCHUNK(pos9, to, input)
+              val res = {
+                var pos11 = pos9
+                var res = parseCHUNK(pos11, to, input)
+                while (!res.success && (pos11 + 1) < to) {
+                  pos11 = pos11 + 1
+                  res = parseCHUNK(pos11, to, input)
+                }
+                res
+              }
               if (!res.success) {
                 keepGoing = false
               } else {
@@ -481,64 +464,82 @@ object ShallowParser extends Parser[ShallowParse] {
         } else {
           Failure
         }
-      } else Failure
+      }
+      else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](IMPERATIVE(res.cats: _*)))
-    else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](IMPERATIVE(res.cats.toSeq: _*))) else Failure
   }
 
   def parseQUESTION(from: Int, to: Int, input: Seq[Int]): Result = {
     val res = {
       val dtrs = mutable.Buffer[ShallowParse]()
-      val pos10_0 = from
-      val res1 = parseCHUNK(pos10_0, to, input)
+      val pos12_0 = from
+      val res1 = parseCHUNK(pos12_0, to, input)
       if (res1.success && res1.pos < input.size) {
         dtrs ++= res1.cats
-        val pos10_1 = res1.pos
-        val res2 = parseVERB(pos10_1, to, input)
+        val pos12_1 = res1.pos
+        val res2 = parseVERB(pos12_1, to, input)
         if (res2.success && res2.pos < input.size) {
           dtrs ++= res2.cats
-          val pos10_2 = res2.pos
+          val pos12_2 = res2.pos
           val res3 = {
             val dtrs = mutable.Buffer[ShallowParse]()
-            var pos11 = pos10_2
+            var pos13 = pos12_2
             var keepGoing = true
-            while (keepGoing && pos11 < to) {
-              val res = parseCHUNK(pos11, to, input)
+            while (keepGoing && pos13 < to) {
+              val res = {
+                var pos14 = pos13
+                var res = parseCHUNK(pos14, to, input)
+                while (!res.success && (pos14 + 1) < to) {
+                  pos14 = pos14 + 1
+                  res = parseCHUNK(pos14, to, input)
+                }
+                res
+              }
               if (!res.success) {
                 keepGoing = false
-              } else {
+              }
+              else {
                 dtrs ++= res.cats
-                pos11 = res.pos
+                pos13 = res.pos
               }
             }
-            Success(pos11, dtrs)
+            Success(pos13, dtrs)
           }
           if (res3.success && res3.pos < input.size) {
             dtrs ++= res3.cats
-            val pos10_3 = res3.pos
+            val pos12_3 = res3.pos
             val res4 = {
-              val res = parseVERB(pos10_3, to, input)
-              if (res.success) res else Success(pos10_3, mutable.Buffer[ShallowParse]())
+              val res = parseVERB(pos12_3, to, input)
+              if (res.success) res else Success(pos12_3, mutable.Buffer[ShallowParse]())
             }
             if (res4.success && res4.pos < input.size) {
               dtrs ++= res4.cats
-              val pos10_4 = res4.pos
+              val pos12_4 = res4.pos
 
               val res5 = {
                 val dtrs = mutable.Buffer[ShallowParse]()
-                var pos12 = pos10_4
+                var pos15 = pos12_4
                 var keepGoing = true
-                while (keepGoing && pos12 < to) {
-                  val res = parseCHUNK(pos12, to, input)
+                while (keepGoing && pos15 < to) {
+                  val res = {
+                    var pos16 = pos15
+                    var res = parseCHUNK(pos16, to, input)
+                    while (!res.success && (pos16 + 1) < to) {
+                      pos16 = pos16 + 1
+                      res = parseCHUNK(pos16, to, input)
+                    }
+                    res
+                  }
                   if (!res.success) {
                     keepGoing = false
-                  } else {
+                  }
+                  else {
                     dtrs ++= res.cats
-                    pos12 = res.pos
+                    pos15 = res.pos
                   }
                 }
-                Success(pos12, dtrs)
+                Success(pos15, dtrs)
               }
               if (res5.success) {
                 dtrs ++= res5.cats
@@ -546,13 +547,16 @@ object ShallowParser extends Parser[ShallowParse] {
               } else {
                 Failure
               }
-            } else Failure
-          } else Failure
-        } else Failure
-      } else Failure
+            }
+            else Failure
+          }
+          else Failure
+        }
+        else Failure
+      }
+      else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](QUESTION(res.cats: _*)))
-    else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](QUESTION(res.cats.toSeq: _*))) else Failure
   }
 
   def parseVERB(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -565,41 +569,38 @@ object ShallowParser extends Parser[ShallowParse] {
       else {
         val res = {
           val ch = input(from)
-          if (ch == -17) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-          else Failure
+          if (ch == -17) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
         }
         if (res.success) res
         else {
           val res = {
             val ch = input(from)
-            if (ch == -18) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-            else Failure
+            if (ch == -18) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
           }
           if (res.success) res
           else {
             val res = {
               val ch = input(from)
-              if (ch == -19) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-              else Failure
+              if (ch == -19) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
             }
             if (res.success) res
             else {
               val res = {
                 val ch = input(from)
-                if (ch == -20) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-                else Failure
+                if (ch == -20) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
               }
               if (res.success) res
               else {
                 val ch = input(from)
-                if (ch == -21) Success(from + 1, mutable.Buffer[ShallowParse](Position(from)))
-                else Failure
+                if (ch == -21) Success(from + 1, mutable.Buffer[ShallowParse](Position(from))) else Failure
               }
             }
           }
         }
       }
     }
-    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](VERB(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[ShallowParse](VERB(res.cats.toSeq: _*))) else Failure
   }
 }
+
+

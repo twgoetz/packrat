@@ -67,14 +67,14 @@ object ParserMain extends App {
   }
   
   val input = "VB PRP DT JJ NN NN IN NNP".split(" ")
-  val s = input.map(ShallowParser.codeForExternalSymbol(_))
+  val s = input.map(ShallowParser.codeForExternalSymbol(_)).toIndexedSeq
   val result = ShallowParser.parseLongest(0, s.length, s)
   result match {
     case ShallowParser.ParseFailure => println("Parsing failed")
     case ShallowParser.ParseSuccess(_, parse) => 
       println(parse)
       println()
-      println(printTree(parse, input))
+      println(printTree(parse, input.toIndexedSeq))
   }
   
 }

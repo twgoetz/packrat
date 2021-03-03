@@ -94,7 +94,7 @@ object GrammarParser extends Parser[GrammarParse] {
       }
       Success(pos, dtrs)
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Grammar(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Grammar(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -169,7 +169,7 @@ object GrammarParser extends Parser[GrammarParse] {
         } else Failure
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Rule(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Rule(res.cats.toSeq: _*))) else Failure
   }
 
   def parseExpr(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -220,7 +220,7 @@ object GrammarParser extends Parser[GrammarParse] {
         }
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Expr(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Expr(res.cats.toSeq: _*))) else Failure
   }
 
   def parseSeqElementExpr(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -281,7 +281,7 @@ object GrammarParser extends Parser[GrammarParse] {
         }
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](SeqElementExpr(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](SeqElementExpr(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -322,7 +322,7 @@ object GrammarParser extends Parser[GrammarParse] {
         }
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](AltElementExpr(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](AltElementExpr(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -332,7 +332,7 @@ object GrammarParser extends Parser[GrammarParse] {
       if (res.success) res
       else parseSimpleExpr(from, to, input)
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](OperandExpr(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](OperandExpr(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -376,7 +376,7 @@ object GrammarParser extends Parser[GrammarParse] {
         } else Failure
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](ParenExpr(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](ParenExpr(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -398,7 +398,7 @@ object GrammarParser extends Parser[GrammarParse] {
         }
       }
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](SimpleExpr(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](SimpleExpr(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -425,7 +425,7 @@ object GrammarParser extends Parser[GrammarParse] {
         } else Failure
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](GapExpr(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](GapExpr(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -568,7 +568,7 @@ object GrammarParser extends Parser[GrammarParse] {
         } else Failure
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Terminal(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Terminal(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -654,7 +654,7 @@ object GrammarParser extends Parser[GrammarParse] {
         }
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Symbol(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Symbol(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -803,7 +803,7 @@ object GrammarParser extends Parser[GrammarParse] {
         } else Failure
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](CharSet(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](CharSet(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -845,7 +845,7 @@ object GrammarParser extends Parser[GrammarParse] {
         }
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](EscapedChar(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](EscapedChar(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -882,7 +882,7 @@ object GrammarParser extends Parser[GrammarParse] {
         }
       }
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Hex(res.cats: _*))) else Failure
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Hex(res.cats.toSeq: _*))) else Failure
   }
 
   def parseHexChar(from: Int, to: Int, input: Seq[Int]): Result = {
@@ -944,7 +944,7 @@ object GrammarParser extends Parser[GrammarParse] {
         } else Failure
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](HexChar(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](HexChar(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -994,7 +994,7 @@ object GrammarParser extends Parser[GrammarParse] {
         } else Failure
       } else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Range(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Range(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -1022,7 +1022,7 @@ object GrammarParser extends Parser[GrammarParse] {
       }
       Success(pos, dtrs)
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](OptWS(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](OptWS(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -1036,7 +1036,7 @@ object GrammarParser extends Parser[GrammarParse] {
       } else if (ch == 43) Success(from + 1, mutable.Buffer[GrammarParse](Position(from)))
       else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Operator(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](Operator(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -1045,7 +1045,7 @@ object GrammarParser extends Parser[GrammarParse] {
       val ch = input(from)
       if (ch == 35) Success(from + 1, mutable.Buffer[GrammarParse](Position(from))) else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](GapOperator(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](GapOperator(res.cats.toSeq: _*)))
     else Failure
   }
 
@@ -1054,7 +1054,7 @@ object GrammarParser extends Parser[GrammarParse] {
       val ch = input(from)
       if (ch == 47) Success(from + 1, mutable.Buffer[GrammarParse](Position(from))) else Failure
     }
-    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](AltOperator(res.cats: _*)))
+    if (res.success) Success(res.pos, mutable.Buffer[GrammarParse](AltOperator(res.cats.toSeq: _*)))
     else Failure
   }
 }

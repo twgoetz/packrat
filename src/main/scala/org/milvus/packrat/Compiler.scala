@@ -4,16 +4,14 @@ import java.io.{BufferedWriter, File, FileOutputStream, OutputStreamWriter}
 import java.nio.charset.StandardCharsets
 import java.util
 
-import com.sun.org.apache.xalan.internal.xsltc.compiler.sym
-import com.sun.org.apache.xpath.internal.operations.Variable
-import org.scalafmt.config.ScalafmtConfig
+import java.nio.file._
 
 case class Compiler(packageName: String, parserClassName: String, parseTreeClassName: String) {
-  
+
   val bufferClass = s"mutable.Buffer[$parseTreeClassName]"
-  
+
   case class TranslationResult(trans: String, fromCount: Int)
-  
+
   val staticImports =
     """import scala.collection.mutable
       |
@@ -56,16 +54,16 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
       |
       |
       |""".stripMargin
-  
+
   // Gather symbols that have no rules defined for them. Those symbols are references to externally
   // generated input, such as POS tags. Assign a (negative) integer to each such symbol, and
   // provide conversion utilities.
   def collectExternalSymbols(rules: Seq[Rl]): Seq[String] = {
-    
+
     val grammarSymbols: Set[String] = rules
       .map(r => r.lhs.name)
       .toSet
-    
+
     def collect(e: Expr): Seq[String] = {
       e match {
         case Sym(name) => if (grammarSymbols.contains(name)) Seq() else Seq(name)
@@ -78,19 +76,19 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
         case _ => Seq()
       }
     }
-    
+
     rules
       .flatMap(r => collect(r.rhs))
       .distinct
   }
-  
+
   def compile(rules: Seq[Rl]): String = {
     val packageDecl = s"package $packageName\n\n"
     val parseTreeDecl = s"sealed trait $parseTreeClassName\n\n"
     val ntDecl =
       s"abstract class NonTerminal(val name: String, val dtrs: Seq[$parseTreeClassName]) extends " +
-        "ShallowParse\nobject NonTerminal { def unapply(nt: NonTerminal): Option[(String, " +
-        "Seq[ShallowParse])] = Some((nt.name, nt.dtrs)) }\n"
+        s"$parseTreeClassName\nobject NonTerminal { def unapply(nt: NonTerminal): Option[(String, " +
+        s"Seq[$parseTreeClassName])] = Some((nt.name, nt.dtrs)) }\n"
     val positionDecl = s"case class Position(pos: Int) extends $parseTreeClassName\n\n"
     val categoriesDecl = ntDecl + rules
       .map(_.lhs.name)
@@ -101,14 +99,14 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
     //      s"case class Result(success: Boolean, pos: Int, cats: mutable
     // .Buffer[$parseTreeClassName])\n" +
     //      "val failure = Result(false, 0, mutable.Buffer())\n\n"
-    
+
     val classDecls = s"sealed abstract class Result(val success: Boolean, val pos: Int, val " +
       s"cats: mutable.Buffer[$parseTreeClassName])\n" +
       s"case class Success(override val pos: Int, override val cats: mutable" +
       s".Buffer[$parseTreeClassName]) extends Result(true, pos, cats)\n" +
       "case object Failure extends Result(false, 0, mutable.Buffer())\n\n"
-    
-    
+
+
     val externalSymbolDecl = "sealed abstract class ExternalSymbol(val name: String, val " +
       "index: Int)\n"
     val unknownSymbolDecl = "case object UnknownSymbol extends ExternalSymbol(\"\", -1)\n"
@@ -147,16 +145,16 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
       externalSymbolDefinition + abstractFunImpl +
       functionDecls + classFooter
   }
-  
+
   def compile(rule: Rl, externalSymbols: Map[String, Int]): String = {
     val lhs = rule.lhs.name
     val funHeader = s"def parse$lhs(from: Int, to: Int, input: Seq[Int]): Result = {\n val res = "
     val funBody = compile(rule.rhs, "from", externalSymbols)
-    val funFooter = s"if (res.success) Success(res.pos, $bufferClass($lhs(res.cats: _*))) else " +
+    val funFooter = s"if (res.success) Success(res.pos, $bufferClass($lhs(res.cats.toSeq: _*))) else " +
       s"Failure\n}\n"
     funHeader + funBody + funFooter
   }
-  
+
   def compile(expr: Expr, fromVar: String, externalSymbols: Map[String, Int]): String = {
     expr match {
       case Range(from, to) => compileRange(from, to, fromVar)
@@ -177,18 +175,18 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
       case _ => "Failure // Unknown grammar expression\n"
     }
   }
-  
+
   def compileOptional(expr: Expr, fromVar: String, externalSymbols: Map[String, Int]): String = {
     s"{\nval res = ${compile(expr, fromVar, externalSymbols)} if (res.success) res else Success" +
       s"($fromVar, $bufferClass())\n}\n"
   }
-  
+
   def compileSeq(exprs: Seq[Expr], fromVar: String, externalSymbols: Map[String, Int]): String = {
-    
+
     val localVar = TmpPos.next + "_"
-    
+
     val s1 = s"{\n val dtrs = mutable.Buffer[$parseTreeClassName]()\n val ${localVar}0 = $fromVar\n"
-    
+
     def cs(start: Int, end: Int): String = {
       if (start == end) {
         val count = start + 1
@@ -206,16 +204,16 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
         c1 + c2 + c4 + c5
       }
     }
-    
+
     val s2 = "}\n"
     s1 + cs(0, exprs.size - 1) + s2
   }
-  
+
   def compileSet(set: Array[Int], fromVar: String): String = {
     util.Arrays.sort(set)
     if (set.isEmpty) "Failure"
     else {
-      
+
       def cs(start: Int, end: Int): String = {
         val size = end - start
         if (size == 1) s"if (ch == ${set(start)}) Success($fromVar + 1, $bufferClass(Position" +
@@ -236,11 +234,11 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
           c1 + c2 + c3
         }
       }
-      
+
       s"{\nval ch = input($fromVar)\n" + cs(0, set.size) + "}\n"
     }
   }
-  
+
   def compileStar(expr: Expr, fromVar: String, externalSymbols: Map[String, Int]): String = {
     val pos = TmpPos.next
     val p1 = s"{\nval dtrs = mutable.Buffer[$parseTreeClassName]()\n var $pos = $fromVar\n var " +
@@ -250,7 +248,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
     val p3 = s"else {\n dtrs ++= res.cats\n $pos = res.pos\n}\n}\n Success($pos, dtrs)\n}\n"
     p1 + p2 + p3
   }
-  
+
   def compilePlus(expr: Expr, fromVar: String, externalSymbols: Map[String, Int]): String = {
     val pos = TmpPos.next
     val expression = compile(expr, fromVar, externalSymbols)
@@ -263,7 +261,7 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
     val p5 = s"dtrs ++= res.cats\n $pos = res.pos\n}\n}\n Success($pos, dtrs)\n}\n}\n"
     p1 + p2 + p3 + p4 + p5
   }
-  
+
   def compileGap(expr: Expr, fromVar: String, externalSymbols: Map[String, Int]): String = {
     val pos = TmpPos.next
     val expression = compile(expr, pos, externalSymbols)
@@ -272,12 +270,12 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
     val p3 = s"$pos = $pos + 1\nres = $expression}\nres\n}\n"
     p1 + p2 + p3
   }
-  
+
   def compileAlternative(exprs: Seq[Expr], fromVar: String, externalSymbols: Map[String, Int])
   : String = {
-    
+
     val max = exprs.size - 1
-    
+
     def compileAlternative(pos: Int): String = {
       if (pos == max) {
         compile(exprs(pos), fromVar, externalSymbols)
@@ -289,20 +287,20 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
         a1 + a2
       }
     }
-    
+
     compileAlternative(0)
   }
-  
+
   def compileRange(from: Int, to: Int, fromVar: String): String = {
     s"if ($fromVar >= input.size) Failure\nelse {\n val c = input($fromVar)\n if (c >= $from && c" +
       s" <= $to)\n" +
       s"Success($fromVar + 1, $bufferClass(Position($fromVar)))\n else\n Failure}\n"
   }
-  
+
   object TmpPos {
-    
+
     private var i: Int = 0
-    
+
     def next: String = {
       this.synchronized {
         val x = i
@@ -310,37 +308,51 @@ case class Compiler(packageName: String, parserClassName: String, parseTreeClass
         "pos" + x
       }
     }
-    
+
   }
-  
+
 }
 
 object Compiler {
-  
+
   def main(args: Array[String]): Unit = {
     //    val packageName = "org.milvus.packrat.samples.grammar"
     //    val parserClassName = "GrammarParser"
     //    val parseTreeClassName = "GrammarParse"
-    
-    val packageName = "org.milvus.packrat.samples"
-    val parserClassName = "ShallowParser"
-    val parseTreeClassName = "ShallowParse"
-    
-    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream("samples/ShallowParser" +
-      ".peg")
-    //    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream
-    // ("BootstrapGrammar.peg")
+
+    //    val packageName = "org.milvus.packrat.samples"
+    //    val parserClassName = "ShallowParser"
+    //    val parseTreeClassName = "ShallowParse"
+
+    val inputFileName = args(0)
+    val qualifiedName = args(1)
+    val lastDot = qualifiedName.lastIndexOf('.')
+    val packageName = qualifiedName.substring(0, lastDot)
+    val parserClassName = qualifiedName.substring(lastDot + 1)
+    val parseTreeClassName = args(2)
+    val targetFileName = args(3)
+
+    println(s"input file: ${inputFileName}")
+    println(s"package: ${packageName}")
+    println(s"parser class: ${parserClassName}")
+    println(s"tree class: ${parseTreeClassName}")
+    println(s"output file: ${targetFileName}")
+
+    val inputStream = classOf[Compiler].getClassLoader.getResourceAsStream(inputFileName)
     val rules = GrammarReader.parseGrammar(inputStream)
-    
+
     //    val rules = BootstrapGrammar.loadRules()
     rules.foreach(println(_))
     val compiler = Compiler(packageName, parserClassName, parseTreeClassName)
-    val unformatted = compiler.compile(rules)
-    val config = ScalafmtConfig(maxColumn = 100)
-    val formatted = org.scalafmt.Scalafmt.format(unformatted, config).get
-    println(formatted)
+    val scalaCode = compiler.compile(rules)
+    //    println(scalaCode)
+    val out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(targetFileName),
+      StandardCharsets.UTF_8))
+    out.write(scalaCode)
+    out.close()
+
   }
-  
+
 }
 
 object BootstrapCompiler {
@@ -348,19 +360,19 @@ object BootstrapCompiler {
     val packageName = "org.milvus.packrat.samples.grammar"
     val parserClassName = "GrammarParser"
     val parseTreeClassName = "GrammarParse"
-    
+
     val rules = BootstrapGrammar.loadRules()
     rules.foreach(println(_))
     val compiler = Compiler(packageName, parserClassName, parseTreeClassName)
     val unformatted = compiler.compile(rules)
-    val config = ScalafmtConfig(maxColumn = 100)
-    val formatted = org.scalafmt.Scalafmt.format(unformatted, config).get
-    println(formatted)
-    
+    val config = Paths.get("scalafmt.conf")
+    val file = Paths.get("Main.scala")
+    println(unformatted)
+
     val outFile = new File("src/main/scala/org/milvus/packrat/samples/grammar/GrammarParser.scala")
     val out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(outFile),
       StandardCharsets.UTF_8))
-    out.write(formatted)
+    out.write(unformatted)
     out.close()
   }
 }

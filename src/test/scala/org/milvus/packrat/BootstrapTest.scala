@@ -1,10 +1,10 @@
 package org.milvus.packrat
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import org.milvus.packrat.BootstrapGrammar._
 
-class BootstrapTest extends FunSuite {
+class BootstrapTest extends AnyFunSuite {
 
   test("Test character expressions") {
     testChar("'\\''", '\'')

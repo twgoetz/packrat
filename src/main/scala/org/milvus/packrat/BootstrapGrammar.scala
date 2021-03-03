@@ -87,10 +87,10 @@ object BootstrapGrammar {
           if (s.charAt(next) == '(') sym match {
             case "Sq" =>
               val (i, args) = readArgs(s, next + 1)
-              (i, Sq(args: _*))
+              (i, Sq(args.toIndexedSeq: _*))
             case "Alt" =>
               val (i, args) = readArgs(s, next + 1)
-              (i, Alt(args: _*))
+              (i, Alt(args.toIndexedSeq: _*))
             case "Star" =>
               val (i, arg) = readArg(s, next + 1)
               (i, Star(arg))
