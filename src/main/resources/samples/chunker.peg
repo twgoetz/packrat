@@ -1,0 +1,15 @@
+S -> IMPERATIVE / QUESTION / ( # CHUNK )+;
+
+CHUNK -> PP / NP / VC / AP;
+NP -> PRON / ( (WDT / (ADV? DET))? NBAR );
+NBAR -> AP? NOUNS;
+AP -> (AP0 (CCONJ AP0)+) / AP0;
+AP0 -> PART? ADV* ADJ+;
+NOUNS -> ( NOUN )+;
+PP -> ADP NP;
+VC -> (V+ ADVP) / V+;
+ADVP -> (ADV (CCONJ ADV)+) / ADV;
+
+IMPERATIVE -> VERBALL (# CHUNK)+;
+
+V -> AUX/VERB;
